@@ -92,9 +92,9 @@ class Keys:
 
         return proxies
 
-    def get_bot_weebhook_key(self):
+    def get_bot_weebhook_key(self, section="ww"):
         if self.bot_weebhook_key is None:
-            key = next(self._get_local_keys(section="ww", options=["webhook_key"]))
+            key = next(self._get_local_keys(section=section, options=["webhook_key"]))
             self.bot_weebhook_key = key
 
         return self.bot_weebhook_key

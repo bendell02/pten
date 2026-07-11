@@ -186,6 +186,3 @@ def test_send_template_card(mocker):
     }
     response = sender.send_template_card(template_card)
     assert_response(response)
-
-
-print("bac")

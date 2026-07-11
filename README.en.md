@@ -1,7 +1,7 @@
 
 # pten
 
-**pten** is a Python library designed for convenient and quick use of the WeChat Work API.
+**pten** is a Python library designed for convenient and quick use of the WeChat Work and Feishu APIs.
 
 github: [https://github.com/bendell02/pten](https://github.com/bendell02/pten)  
 gitee: [https://gitee.com/bendell02/pten](https://gitee.com/bendell02/pten)
@@ -61,6 +61,9 @@ contact_sync_secret=G4PC19fIwfsykabdv_drNVlOIe_crBvay3sUX8DhGss
 corpid=wwdb63ff5ae01cd4b4
 webhook_key=7ande764-52a4-43d7-a252-05e8abcdb863
 
+[fs]
+webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
+
 [globals]
 debug_mode=False
 
@@ -85,6 +88,7 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |      | contact_sync_secret     | The secret for the contact list. Required for some APIs in the contact module. Passed via the `contact_sync_secret` parameter in the Contact class.  |
 |      | corpid        | The corp ID. Required for the server API to obtain the access_token.  |
 |      | webhook_key   | The webhook key for the WeChat Work bot. Required when sending messages via the bot.  |
+| fs   | webhook_key   | The webhook key for the Feishu bot. Required when sending messages via the Feishu bot.  |
 | globals | debug_mode   | Set to True to enable debug mode, which provides more debugging information.  |
 | proxies | http   | Set the HTTP proxy. Configure when a proxy is needed.  |
 |         | https   | Set the HTTPS proxy. Configure when a proxy is needed.  |
@@ -293,4 +297,32 @@ response = api.http_call(CORP_API_TYPE["DEPARTMENT_LIST"])
 
 corp_jsapi_ticket = api.get_corp_jsapi_ticket()
 app_jsapi_ticket = api.get_app_jsapi_ticket()
+```
+
+### 4.7 fs_messager Module : Sending Feishu Bot Messages
+
+A messaging module for Feishu custom bots (webhook). It mirrors the structure of `wwmessager`, but currently supports only the webhook approach and can send text messages and card messages. A successful response is indicated by `code == 0` and `msg == "success"`.
+
+```python
+from pten.fs_messager import BotMsgSender
+
+bot = BotMsgSender()  # Defaults to pten_keys.ini, reads the webhook_key under [fs]
+
+# Send a text message
+response = bot.send_text("hello world")
+
+# Send a card message (interactive). template is the header color theme, default blue; options include red/orange/yellow/green/indigo/grey
+response = bot.send_card(title="Build Notice", content="**build #123** passed", template="green")
+```
+
+To call the low-level Feishu endpoints directly, use the `fs_api` module, the same way as `wwapi`:
+
+```python
+from pten.fs_api import BotApi, BOT_API_TYPE
+
+api = BotApi("pten_keys.ini")
+response = api.http_call(
+    BOT_API_TYPE["WEBHOOK_SEND"],
+    {"msg_type": "text", "content": {"text": "hello from feishu bot"}},
+)
 ```

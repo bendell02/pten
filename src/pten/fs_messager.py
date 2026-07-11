@@ -188,3 +188,26 @@ class BotMsgSender(MsgSender):
             }
         }
         return self._send(msg_type="text", data=data)
+
+    def send_card(self, title, content, template="blue"):
+        """
+        发送卡片消息(interactive)，构造一个带标题和正文的简单卡片
+        :param title: 卡片标题
+        :param content: 卡片正文，支持 lark_md 语法
+        :param template: 卡片头部配色模板，默认 blue，可选 red/orange/yellow/green/indigo/grey 等
+        :return: 消息发送结果
+        卡片结构参考 https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/feishu-cards/card-json-structure/credat-card
+        """
+        if not (title and content):
+            logger.error(self.errmsgs["card_error"])
+            return {"code": -1, "msg": self.errmsgs["card_error"]}
+        card = {
+            "header": {
+                "template": template,
+                "title": {"tag": "plain_text", "content": title},
+            },
+            "elements": [
+                {"tag": "div", "text": {"tag": "lark_md", "content": content}}
+            ],
+        }
+        return self._send(msg_type="interactive", data={"card": card})

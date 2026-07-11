@@ -24,4 +24,4 @@ def assert_response(response):
 
 def assert_fs_response(response):
     assert response["code"] == 0
-    assert response["msg"] == "ok"
+    assert response["msg"] == "success"

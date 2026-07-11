@@ -1,6 +1,6 @@
 # pten
 
-**pten** 是一个方便快捷使用企业微信API的python工具库.
+**pten** 是一个方便快捷使用企业微信和飞书API的python工具库.
 
 github: [https://github.com/bendell02/pten](https://github.com/bendell02/pten)  
 gitee: [https://gitee.com/bendell02/pten](https://gitee.com/bendell02/pten)
@@ -60,6 +60,9 @@ contact_sync_secret=G4PC19fIwfsykabdv_drNVlOIe_crBvay3sUX8DhGss
 corpid=wwdb63ff5ae01cd4b4
 webhook_key=7ande764-52a4-43d7-a252-05e8abcdb863
 
+[fs]
+webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
+
 [globals]
 debug_mode=False
 
@@ -84,6 +87,7 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |      | contact_sync_secret     | 通讯录的secret。使用通讯录模块时部分API需要使用该secret。通过Contact的contact_sync_secret参数传入  |
 |      | corpid        | corpid。服务端API获取access_token时需要使用  |
 |      | webhook_key   | 企业微信机器人的webhook_key。使用机器人发消息时需要使用  |
+| fs   | webhook_key   | 飞书机器人的webhook_key。使用飞书机器人发消息时需要使用  |
 | globals | debug_mode   | 设置为True时开启调试模式，多一些调试信息  |
 | proxies | http   | 设置http代理。需要走代理时设置即可  |
 |         | https   | 设置https代理。需要走代理时设置即可  |
@@ -293,4 +297,32 @@ response = api.http_call(CORP_API_TYPE["DEPARTMENT_LIST"])
 
 corp_jsapi_ticket = api.get_corp_jsapi_ticket()
 app_jsapi_ticket = api.get_app_jsapi_ticket()
+```
+
+### 4.7 fs_messager 模块 : 发送飞书机器人消息
+
+飞书自定义机器人(webhook)消息发送模块，结构与 `wwmessager` 类似，但目前仅支持 webhook 方式，可发送文本消息和卡片消息。响应成功判定为 `code == 0`、`msg == "success"`。
+
+```python
+from pten.fs_messager import BotMsgSender
+
+bot = BotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
+
+# 发送文本消息
+response = bot.send_text("hello world")
+
+# 发送卡片消息(interactive)，template 为头部配色模板，默认 blue，可选 red/orange/yellow/green/indigo/grey
+response = bot.send_card(title="构建通知", content="**build #123** 成功", template="green")
+```
+
+如需直接调用飞书底层接口，可使用 `fs_api` 模块，用法与 `wwapi` 一致：
+
+```python
+from pten.fs_api import BotApi, BOT_API_TYPE
+
+api = BotApi("pten_keys.ini")
+response = api.http_call(
+    BOT_API_TYPE["WEBHOOK_SEND"],
+    {"msg_type": "text", "content": {"text": "hello from feishu bot"}},
+)
 ```

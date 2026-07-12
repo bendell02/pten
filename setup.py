@@ -14,8 +14,8 @@ with open("README.md", "r", "utf-8") as f:
 
 setup(
     name="pten",
-    version="0.4.0",
-    description="A tool to use WeCom and feishu API quickly and easily",
+    version="0.4.1",
+    description="A tool to use WeWork(企业微信) and feishu(飞书) API quickly and easily",
     long_description=readme,
     long_description_content_type="text/markdown",
     author="PENGyong",

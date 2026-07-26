@@ -8,167 +8,29 @@ This module implements the WeWork API. It is from https://github.com/sbzhu/wewor
 
 from . import logger
 from .keys import Keys
+from . import base_api
+from .base_api import ApiException
 import hashlib
-import json
-import requests
-from urllib.parse import urlencode
 
 
-class ApiException(Exception):
-    def __init__(self, errCode, errMsg):
-        self.errCode = errCode
-        self.errMsg = errMsg
+class AbstractApi(base_api.AbstractApi):
+    """企业微信 API 基类，为共享的 HTTP 管道提供厂商配置。"""
 
+    BASE_URL = "https://qyapi.weixin.qq.com"
+    RESPONSE_CODE_FIELD = "errcode"
+    RESPONSE_MSG_FIELD = "errmsg"
+    # SUITE_ACCESS_TOKEN 必须排在 ACCESS_TOKEN 之前（前者包含后者作为子串）；
+    # _append_token / _refresh_token 取第一个匹配项。
+    TOKEN_PLACEHOLDERS = (
+        ("SUITE_ACCESS_TOKEN", "get_suite_access_token"),
+        ("PROVIDER_ACCESS_TOKEN", "get_provider_access_token"),
+        ("ACCESS_TOKEN", "get_access_token"),
+        ("WEBHOOK_KEY", "get_bot_webhook_key"),
+    )
+    TOKEN_EXPIRED_CODES = (40014, 42001, 42007, 42009)
 
-class AbstractApi(object):
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None):
-        self.keys = keys if keys else Keys(keys_filepath)
-        self.DEBUG_MODE = self.keys.get_debug_mode()
-        self.proxies = self.keys.get_proxies()
-
-    def get_access_token(self):
-        raise NotImplementedError
-
-    def refresh_access_token(self):
-        raise NotImplementedError
-
-    def get_suite_access_token(self):
-        raise NotImplementedError
-
-    def refresh_suite_access_token(self):
-        raise NotImplementedError
-
-    def get_provider_access_token(self):
-        raise NotImplementedError
-
-    def refresh_provider_access_token(self):
-        raise NotImplementedError
-
-    def get_bot_webhook_key(self):
-        raise NotImplementedError
-
-    def http_call(self, urlType, args=None):
-        shortUrl = urlType[0]
-        method = urlType[1]
-        response = {}
-        for retryCnt in range(0, 3):
-            if "POST" == method:
-                url = self.__make_url(shortUrl)
-                response = self.__http_post(url, args)
-            elif "GET" == method:
-                url = self.__make_url(shortUrl)
-                url = self.__append_args(url, args)
-                response = self.__http_get(url)
-            elif "POST_FILE" == method:
-                url = self.__make_url(shortUrl)
-                response = self.__post_file(url, args)
-            else:
-                raise ApiException(-1, "unknown method type")
-
-            # check if token expired
-            if self.__token_expired(response.get("errcode")):
-                self.__refresh_token(shortUrl)
-                retryCnt += 1
-                continue
-            else:
-                break
-
-        return self.__check_response(response)
-
-    @staticmethod
-    def __append_args(url, args):
-        if args is None:
-            return url
-
-        for key, value in args.items():
-            if "?" in url:
-                url += "&" + key + "=" + value
-            else:
-                url += "?" + key + "=" + value
-        return url
-
-    @staticmethod
-    def __make_url(shortUrl):
-        base = "https://qyapi.weixin.qq.com"
-        if shortUrl[0] == "/":
-            return base + shortUrl
-        else:
-            return base + "/" + shortUrl
-
-    def __appendToken(self, url):
-        if "SUITE_ACCESS_TOKEN" in url:
-            return url.replace("SUITE_ACCESS_TOKEN", self.get_suite_access_token())
-        elif "PROVIDER_ACCESS_TOKEN" in url:
-            return url.replace(
-                "PROVIDER_ACCESS_TOKEN", self.get_provider_access_token()
-            )
-        elif "ACCESS_TOKEN" in url:
-            return url.replace("ACCESS_TOKEN", self.get_access_token())
-        elif "WEBHOOK_KEY" in url:
-            return url.replace("WEBHOOK_KEY", self.get_bot_webhook_key())
-        else:
-            return url
-
-    def __http_post(self, url, args):
-        realUrl = self.__appendToken(url)
-
-        if self.DEBUG_MODE is True:
-            realUrl += "&debug=1"
-            query_string = urlencode(args)
-            full_url = f"{realUrl}?{query_string}"
-            logger.debug(full_url)
-
-        return requests.post(
-            realUrl,
-            data=json.dumps(args, ensure_ascii=False).encode("utf-8"),
-            proxies=self.proxies,
-        ).json()
-
-    def __http_get(self, url):
-        realUrl = self.__appendToken(url)
-
-        if self.DEBUG_MODE is True:
-            realUrl += "&debug=1"
-            logger.debug(realUrl)
-
-        return requests.get(realUrl, proxies=self.proxies).json()
-
-    def __post_file(self, url, args):
-        realUrl = self.__appendToken(url)
-
-        type = args.get("type", None)
-        files = args.get("files", None)
-        if type is None or files is None:
-            raise ApiException(-1, "type is None or file is None")
-
-        realUrl = self.__append_args(realUrl, {"type": type})
-
-        return requests.post(realUrl, files=files, proxies=self.proxies).json()
-
-    @staticmethod
-    def __check_response(response):
-        errCode = response.get("errcode")
-        errMsg = response.get("errmsg")
-
-        if errCode == 0:
-            return response
-        else:
-            raise ApiException(errCode, errMsg)
-
-    @staticmethod
-    def __token_expired(errCode):
-        if errCode == 40014 or errCode == 42001 or errCode == 42007 or errCode == 42009:
-            return True
-        else:
-            return False
-
-    def __refresh_token(self, url):
-        if "SUITE_ACCESS_TOKEN" in url:
-            self.refresh_suite_access_token()
-        elif "PROVIDER_ACCESS_TOKEN" in url:
-            self.refresh_provider_access_token()
-        elif "ACCESS_TOKEN" in url:
-            self.refresh_access_token()
+    def _debug_url(self, url):
+        return url + "&debug=1"
 
 
 BOT_API_TYPE = {

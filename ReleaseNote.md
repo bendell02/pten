@@ -1,6 +1,13 @@
 # Release Notes
 本文件记录 pten 各版本的变更情况。
 
+## 0.4.2 - 2026-07-27
+- feat: 增加能设置日志路径的功能
+- refactor: 重构fs_api.py和wwapi.py的重复代码
+
+## 0.4.1 - 2026-07-12
+- 修改包的description
+
 ## 0.4.0 - 2026-07-12
 - 飞书(Feishu)自定义机器人支持：新增 `fs_api`、`fs_messager` 模块，结构与 `wwapi`/`wwmessager` 平行，目前支持通过 webhook 发送文本消息(`send_text`)和卡片消息(`send_card`)。
 - 配置文件新增 `[fs]` section，用于配置飞书机器人 `webhook_key`。

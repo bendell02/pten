@@ -14,18 +14,21 @@ pip install pten
 
 Or install from source.
 
-## 2. Basic Usage -- Example of Sending Messages via WeChat Work Bot
+## 2. Basic Usage -- Example of Sending Messages via Bot
 
 ### 2.1 Configuring the Configuration File
 The default path for the configuration file is `pten_keys.ini`, but you can specify a different path using the `keys_filepath` parameter.
 For the complete content of the configuration file, refer to [Configuration File](#configuration-file). Not all fields need to be set; configure them as needed.  
-For example, if you only use the WeChat Work bot, you only need to configure the `webhook_key` field under the `ww` section.
+For example, if you only use the WeChat Work bot, you only need to configure the `webhook_key` field under the `ww` section; if you only use the Feishu bot, you only need to configure the `webhook_key` field under the `fs` section.
 ```ini
 [ww]
 webhook_key=7ande764-52a4-43d7-a252-05e8abcdb863
+
+[fs]
+webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
 ```
 
-### 2.2 Getting Started
+### 2.2 WeChat Work Bot
 ```python
 from pten.wwmessager import BotMsgSender
 
@@ -45,6 +48,22 @@ response = bot.send_image(image_path)
 
 # You can also send voice messages, news messages, file messages, etc.
 ```
+
+### 2.3 Feishu Bot
+```python
+from pten.fs_messager import BotMsgSender
+
+bot = BotMsgSender()  # Defaults to pten_keys.ini, reads the [fs] webhook_key
+# bot = BotMsgSender("another_pten_keys.ini")
+
+# Send a text message
+response = bot.send_text("hello world")
+
+# Send a card message (interactive); template is the header color theme, default blue, options: red/orange/yellow/green/indigo/grey
+response = bot.send_card(title="Build Notice", content="**build #123** succeeded", template="green")
+```
+
+The Feishu bot currently only supports webhook mode and can send text and card messages. See section 4.7 for more details.
 
 ## 3. Configuration File
 

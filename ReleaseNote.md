@@ -1,6 +1,10 @@
 # Release Notes
 本文件记录 pten 各版本的变更情况。
 
+
+## 0.4.3 - 2026-07-27
+- feat: README增加飞书机器人的样例
+
 ## 0.4.2 - 2026-07-27
 - feat: 增加能设置日志路径的功能
 - refactor: 重构fs_api.py和wwapi.py的重复代码

@@ -34,7 +34,7 @@ def test_send_card_real():
     if not os.path.exists(key_filepath):
         pytest.skip(f"Key file not found: {key_filepath}")
 
-    bot = BotMsgSender("pten_keys.ini")
+    bot = BotMsgSender(key_filepath)
 
     response = bot.send_card(
         title="飞书卡片",

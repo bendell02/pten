@@ -14,7 +14,7 @@ with open("README.md", "r", "utf-8") as f:
 
 setup(
     name="pten",
-    version="0.4.2",
+    version="0.4.3",
     description="A tool to use WeWork(企业微信) and feishu(飞书) API quickly and easily",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -31,5 +31,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    keywords="wework qywx wechat weixin robot app",
+    keywords="feishu wework qywx wechat weixin robot app",
 )

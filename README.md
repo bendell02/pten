@@ -13,18 +13,21 @@ pip install pten
 
 或者源码安装
 
-## 2. 基础使用 -- 以使用企业微信机器人发送消息为例
+## 2. 基础使用 -- 以使用机器人发送消息为例
 
 ### 2.1 设置配置文件
 配置文件默认路径为 `pten_keys.ini`，也可以通过 `keys_filepath` 参数指定配置文件路径。
 配置文件完整内容请参考[配置文件](#3. 配置文件)，并非所有字段都需要设置，根据自己需要配置即可。  
-比如如果只用企业微信机器人，只需配置 `ww`的`webhook_key`字段即可。
+比如如果只用企业微信机器人，只需配置 `ww`的`webhook_key`字段即可；只用飞书机器人，只需配置 `fs`的`webhook_key`字段即可。
 ```ini
 [ww]
 webhook_key=7ande764-52a4-43d7-a252-05e8abcdb863
+
+[fs]
+webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
 ```
 
-### 2.2 开始使用
+### 2.2 企业微信机器人
 ```python
 from pten.wwmessager import BotMsgSender
 
@@ -44,6 +47,22 @@ response = bot.send_image(image_path)
 
 # 还可发送语音消息、图文消息、文件消息等
 ```
+
+### 2.3 飞书机器人
+```python
+from pten.fs_messager import BotMsgSender
+
+bot = BotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
+# bot = BotMsgSender("another_pten_keys.ini")
+
+# 发送文本消息
+response = bot.send_text("hello world")
+
+# 发送卡片消息(interactive)，template 为头部配色模板，默认 blue，可选 red/orange/yellow/green/indigo/grey
+response = bot.send_card(title="构建通知", content="**build #123** 成功", template="green")
+```
+
+飞书机器人目前仅支持 webhook 方式，可发送文本消息和卡片消息，更多说明见 4.7 节。
 
 ## 3. 配置文件
 

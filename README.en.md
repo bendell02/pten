@@ -66,6 +66,7 @@ webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
 
 [globals]
 debug_mode=False
+;log_path=pten.log  ; optional, log file path, default pten.log relative to CWD
 
 [proxies]
 http=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
@@ -90,6 +91,7 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |      | webhook_key   | The webhook key for the WeChat Work bot. Required when sending messages via the bot.  |
 | fs   | webhook_key   | The webhook key for the Feishu bot. Required when sending messages via the Feishu bot.  |
 | globals | debug_mode   | Set to True to enable debug mode, which provides more debugging information.  |
+|         | log_path     | Log file path, default pten.log (relative to CWD). Read from the config file used when a Keys instance is created; or configure explicitly via ``pten.setup_logging()``  |
 | proxies | http   | Set the HTTP proxy. Configure when a proxy is needed.  |
 |         | https   | Set the HTTPS proxy. Configure when a proxy is needed.  |
 | notice  | deepseek_api_key | The API key for Deepseek. Can be passed when using the Deepseek class to answer questions. |

@@ -65,6 +65,7 @@ webhook_key=cb46342e-4ecb-436c-b91d-6abcabc8c033e
 
 [globals]
 debug_mode=False
+;log_path=pten.log  ; 可选，日志文件路径，默认 pten.log（相对 CWD）
 
 [proxies]
 http=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
@@ -89,6 +90,7 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |      | webhook_key   | 企业微信机器人的webhook_key。使用机器人发消息时需要使用  |
 | fs   | webhook_key   | 飞书机器人的webhook_key。使用飞书机器人发消息时需要使用  |
 | globals | debug_mode   | 设置为True时开启调试模式，多一些调试信息  |
+|         | log_path     | 日志文件路径，默认 pten.log（相对 CWD）。创建 Keys 实例时从其使用的配置文件读取；也可调用 ``pten.setup_logging()`` 显式配置  |
 | proxies | http   | 设置http代理。需要走代理时设置即可  |
 |         | https   | 设置https代理。需要走代理时设置即可  |
 | notice  | deepseek_api_key | deepseek的api_key。使用Deepseek类回答一些问题时可传入 |

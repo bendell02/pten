@@ -1,5 +1,7 @@
 from .conftest import use_real_keys
 from pten.keys import Keys
+import os
+import pten
 import pytest
 
 
@@ -72,3 +74,21 @@ def test_proxies(key_filepath_example):
 def test_bot_weebhook_key(key_filepath_example):
     keys = Keys(key_filepath_example)
     assert keys.get_bot_weebhook_key() == "7ande764-52a4-43d7-a252-05e8abcdb863"
+
+
+def test_get_log_path_default(key_filepath_example):
+    # pten_keys_example.ini 中 log_path 被注释掉，回退默认值
+    keys = Keys(key_filepath_example)
+    assert keys.get_log_path() == pten.DEFAULT_LOG_PATH
+
+
+def test_get_log_path_configured(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    ini = tmp_path / "keys_with_log_path.ini"
+    ini.write_text("[globals]\ndebug_mode=False\nlog_path=my.log\n", encoding="utf-8")
+    keys = Keys(str(ini))
+    # 配置值应被原样读出
+    assert keys.get_log_path() == "my.log"
+    # 构造 Keys 时应顺带把日志 handler 切到该路径
+    expected = os.path.normpath(os.path.join(str(tmp_path), "my.log"))
+    assert os.path.normpath(pten._current_log_path) == expected

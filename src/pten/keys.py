@@ -6,7 +6,7 @@ This module implements the keys class for getting keys from local file.
 
 """
 
-from . import logger
+from . import logger, setup_logging, DEFAULT_LOG_PATH
 import configparser
 from configparser import ConfigParser
 from datetime import datetime
@@ -31,6 +31,9 @@ class Keys:
         self.corp_jsapi_ticket_expire_time = float("-inf")
         self.app_jsapi_ticket = None
         self.app_jsapi_ticket_expire_time = float("-inf")
+
+        # 根据当前配置文件中的 [globals] log_path 配置日志文件路径
+        setup_logging(log_path=self.get_log_path())
 
         logger.info(f"keys_filepath : {self.keys_filepath}")
 
@@ -82,6 +85,12 @@ class Keys:
 
         debug_mode = debug_mode_str.lower() in ("true", "yes", "on", "1")
         return debug_mode
+
+    def get_log_path(self):
+        try:
+            return self.get_key("globals", "log_path")
+        except (configparser.Error, FileNotFoundError):
+            return DEFAULT_LOG_PATH
 
     def get_proxies(self):
         proxies = None

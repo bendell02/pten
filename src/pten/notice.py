@@ -9,6 +9,7 @@ This module implements the notice functions.
 from . import logger
 from .keys import Keys
 from apscheduler.schedulers.blocking import BaseScheduler
+import configparser
 import datetime
 from lunardate import LunarDate
 from openai import OpenAI
@@ -153,6 +154,63 @@ class Birthday(Notice):
         self._add_solar_schedule(msg, solar_date.year, month, day, hour, minute)
 
 
+class LLM(Notice):
+    """通用大模型对话类，适配任意 OpenAI 兼容接口
+
+    可直接传入 base_url 与 api_key 即可对话，也可省略后从 [notice] 配置读取：
+      llm_base_url / llm_api_key / llm_model
+
+    :param base_url: OpenAI 兼容的服务地址，如 https://api.deepseek.com
+    :param api_key: 服务对应的 api key
+    :param model: 模型名称，如 deepseek-v4-flash、gpt-4o-mini
+    :param system_prompt: 系统提示词，默认 "You are a helpful assistant"
+    :param keys_filepath: 当 base_url/api_key/model 未直接传入时，从此文件读取
+    """
+
+    def __init__(
+        self,
+        base_url=None,
+        api_key=None,
+        model=None,
+        system_prompt="You are a helpful assistant",
+        keys_filepath="pten_keys.ini",
+        **kwargs,
+    ):
+        super().__init__()
+        self.keys = Keys(keys_filepath)
+
+        # 直接传入的参数优先，未传入则回退到 [notice] 配置
+        self.base_url = base_url or self._get_notice_key("llm_base_url")
+        self.api_key = api_key or self._get_notice_key("llm_api_key")
+        self.model = model or self._get_notice_key("llm_model")
+        self.system_prompt = system_prompt
+
+        if not self.base_url or not self.api_key or not self.model:
+            info = "base_url、api_key、model 不能为空，请直接传入或在 [notice] 中配置llm_base_url / llm_api_key / llm_model"
+            raise ValueError(info)
+
+        self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+
+    def _get_notice_key(self, option):
+        try:
+            return self.keys.get_key("notice", option)
+        except (configparser.Error, FileNotFoundError):
+            logger.warning(f"Can not find {option} in keys ini file")
+            return None
+
+    def get_completion(self, prompt):
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            stream=False,
+        )
+
+        return response.choices[0].message.content
+
+
 class Deepseek(Notice):
     def __init__(self, keys_filepath="pten_keys.ini", **kwargs):
         super().__init__()
@@ -165,7 +223,7 @@ class Deepseek(Notice):
 
     def get_completion(self, prompt):
         response = self.deepseek_client.chat.completions.create(
-            model="deepseek-chat",
+            model="deepseek-v4-flash",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant"},
                 {"role": "user", "content": prompt},

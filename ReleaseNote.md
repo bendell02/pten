@@ -2,6 +2,10 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## 0.4.4 - 2026-08-02
+- feat: `notice` 新增通用大模型对话类 `LLM`，传入 `base_url`/`api_key`/`model` 即可适配任意 OpenAI 兼容服务；`[notice]` 新增 `llm_base_url`/`llm_api_key`/`llm_model` 配置。建议以 `LLM` 替代 `Deepseek`。
+- docs: README 与 CLAUDE.md 增加 `LLM` 类说明，标注 `Deepseek` 为已替代。
+
 ## 0.4.3 - 2026-07-27
 - feat: README增加飞书机器人的样例
 

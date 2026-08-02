@@ -51,7 +51,7 @@ Most tests mock `requests.get`/`requests.post` via `pytest-mock`'s `mocker` fixt
 - `wwcontact.py` — `Contact` wraps `CorpApi` using `contact_sync_secret` (from `[ww]`, or passed in) instead of `app_secret`.
 - `wwdoc.py` — `Doc` wraps `CorpApi` for wedoc / smartsheet / form endpoints.
 - `wwcrypt.py` — `WXBizMsgCrypt` (VerifyURL / DecryptMsg / EncryptMsg) for callback message crypto. Vendored from `weworkapi_python`.
-- `notice.py` — `Notice` base (default `report_func=print`); `Birthday` (lunar via `lunardate` + solar, schedules via `apscheduler` and auto-reschedules the next year, handles leap months); `Deepseek` (OpenAI client pointed at the DeepSeek base_url); `Weather` (seniverse API).
+- `notice.py` — `Notice` base (default `report_func=print`); `Birthday` (lunar via `lunardate` + solar, schedules via `apscheduler` and auto-reschedules the next year, handles leap months); `LLM` (general OpenAI-compatible chat client taking `base_url`/`api_key`/`model`, with `[notice]` `llm_*` fallback; supersedes `Deepseek`); `Deepseek` (DeepSeek-only preset, OpenAI client pointed at the DeepSeek base_url - superseded by `LLM`); `Weather` (seniverse API).
 
 ### Logging
 Importing `pten` (i.e. `from . import logger` in each module) runs `src/pten/__init__.py`, which configures a named `logger` with a colored console handler and a 30MB-rotating `pten.log` file handler. Use this `logger`, not `print`, inside the package.

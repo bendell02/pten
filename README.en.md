@@ -92,7 +92,11 @@ http=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
 https=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
 
 [notice]
-;ai
+;ai - general LLM (OpenAI compatible), read by LLM when params not passed directly
+;llm_base_url=https://api.deepseek.com
+;llm_api_key=sk-xxxxxxxx
+;llm_model=deepseek-v4-flash
+;deepseek_api_key is for the Deepseek class only; prefer the LLM class
 deepseek_api_key=sk-0a6e5b4e8b4c0e1a5b6b8e0e4d5aefb
 ;weather
 seniverse_api_key=v5bFw3o1pSmbGvuEN
@@ -113,7 +117,10 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |         | log_path     | Log file path, default pten.log (relative to CWD). Read from the config file used when a Keys instance is created; or configure explicitly via ``pten.setup_logging()``  |
 | proxies | http   | Set the HTTP proxy. Configure when a proxy is needed.  |
 |         | https   | Set the HTTPS proxy. Configure when a proxy is needed.  |
-| notice  | deepseek_api_key | The API key for Deepseek. Can be passed when using the Deepseek class to answer questions. |
+| notice  | llm_base_url | General LLM (OpenAI-compatible) service base URL. Read by the LLM class when base_url is not passed directly. |
+|         | llm_api_key | General LLM (OpenAI-compatible) API key. Read by the LLM class when api_key is not passed directly. |
+|         | llm_model | General LLM (OpenAI-compatible) model name. Read by the LLM class when model is not passed directly. |
+|         | deepseek_api_key | Deepseek API key, used by the Deepseek class only. Prefer the LLM class with the llm_* fields. |
 |         | seniverse_api_key | The API key for Seniverse Weather. Can be passed when using the Weather class to fetch weather information. |
 
 • Why are proxies needed? When are they used?  
@@ -205,12 +212,22 @@ scheduler.start()
 
 #### 4.2.3 Getting AI Responses
 
-```python
-from pten.notice import Deepseek
+`LLM` is a general OpenAI-compatible chat client: pass `base_url`, `api_key`, and `model` to chat with any provider (DeepSeek, OpenAI, etc.):
 
-deepseek = Deepseek()
-content = deepseek.get_completion("Briefly introduce Newton")
+```python
+from pten.notice import LLM
+
+# Pass params directly to chat with any OpenAI-compatible service
+llm = LLM(base_url="https://api.deepseek.com", api_key="sk-xxx", model="deepseek-v4-flash")
+content = llm.get_completion("Briefly introduce Newton")
+
+# Switching models is just a parameter change
+# gpt = LLM(base_url="https://api.openai.com/v1", api_key="sk-xxx", model="gpt-4o-mini")
 ```
+
+You can also set `llm_base_url`, `llm_api_key`, and `llm_model` under `[notice]` and call `LLM()` with no arguments.
+
+> The `Deepseek` class has been superseded by the more general `LLM` class; prefer `LLM`. `Deepseek` is kept for backward compatibility.
 
 ### 4.3 wwcrypt Module : Encrypting and Decrypting Messages
 Module for encrypting and decrypting messages sent and received by the app.

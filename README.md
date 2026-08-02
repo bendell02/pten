@@ -91,7 +91,11 @@ http=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
 https=http://xxx:xxx@xxx.xxx.xxx.xxx:8888
 
 [notice]
-;ai
+;ai - 通用大模型(OpenAI兼容)，LLM 类未直接传参时从此读取
+;llm_base_url=https://api.deepseek.com
+;llm_api_key=sk-xxxxxxxx
+;llm_model=deepseek-v4-flash
+;deepseek_api_key 仅供 Deepseek 类使用，建议改用 LLM 类
 deepseek_api_key=sk-0a6e5b4e8b4c0e1a5b6b8e0e4d5aefb
 ;weather
 seniverse_api_key=v5bFw3o1pSmbGvuEN
@@ -112,7 +116,10 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |         | log_path     | 日志文件路径，默认 pten.log（相对 CWD）。创建 Keys 实例时从其使用的配置文件读取；也可调用 ``pten.setup_logging()`` 显式配置  |
 | proxies | http   | 设置http代理。需要走代理时设置即可  |
 |         | https   | 设置https代理。需要走代理时设置即可  |
-| notice  | deepseek_api_key | deepseek的api_key。使用Deepseek类回答一些问题时可传入 |
+| notice  | llm_base_url | 通用大模型(OpenAI兼容)服务地址。LLM类未直接传入 base_url 时从此读取 |
+|         | llm_api_key | 通用大模型(OpenAI兼容)的 api_key。LLM类未直接传入 api_key 时从此读取 |
+|         | llm_model | 通用大模型(OpenAI兼容)的模型名称。LLM类未直接传入 model 时从此读取 |
+|         | deepseek_api_key | deepseek 的 api_key，仅供 `Deepseek` 类使用。建议改用 `LLM` 类配合 `llm_*` 配置 |
 |         | seniverse_api_key | 心知天气的api_key。使用Weather类获取天气时可传入 |
 
 - 为什么需要proxies？ 什么情况使用？  
@@ -205,12 +212,22 @@ scheduler.start()
 
 #### 4.2.3 获取ai的回答
 
-```python
-from pten.notice import Deepseek
+`LLM` 是通用的 OpenAI 兼容大模型对话类，传入 `base_url`、`api_key`、`model` 即可对话，适配 DeepSeek、OpenAI 等不同模型：
 
-deepseek = Deepseek()
-content = deepseek.get_completion("简略介绍一下牛顿")
+```python
+from pten.notice import LLM
+
+# 直接传参即可对话，适配任意 OpenAI 兼容服务
+llm = LLM(base_url="https://api.deepseek.com", api_key="sk-xxx", model="deepseek-v4-flash")
+content = llm.get_completion("简略介绍一下牛顿")
+
+# 换用其他模型只需改参数
+# gpt = LLM(base_url="https://api.openai.com/v1", api_key="sk-xxx", model="gpt-4o-mini")
 ```
+
+也可将 `llm_base_url`、`llm_api_key`、`llm_model` 配置在 `[notice]` 中，省略参数直接 `LLM()` 读取。
+
+> `Deepseek` 类已由更通用的 `LLM` 类替代，建议改用 `LLM`。`Deepseek` 仍保留以兼容旧代码。
 
 ### 4.3 wwcrypt 模块 : 加解密消息
 应用收发消息加解密模块

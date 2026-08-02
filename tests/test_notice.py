@@ -1,12 +1,13 @@
 from pten import logger
 from .conftest import enable_long_time_tests, use_real_keys
-from pten.notice import Birthday, Deepseek, Weather
+from pten.notice import Birthday, Deepseek, LLM, Weather
 from pten.wwmessager import BotMsgSender
 import pytest
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 import datetime
 from lunardate import LunarDate
+import os
 import threading
 import time
 
@@ -17,6 +18,34 @@ def test_deepseek(mocker):
 
     deepseek = Deepseek("pten_keys_example.ini")
     content = deepseek.get_completion("简略介绍一下牛顿")
+    assert content != ""
+
+
+def test_llm(mocker):
+    mock_get = mocker.patch("pten.notice.LLM.get_completion")
+    mock_get.return_value = "newton"
+
+    llm = LLM(
+        base_url="https://api.deepseek.com",
+        api_key="sk-test",
+        model="deepseek-v4-flash",
+        keys_filepath="pten_keys_example.ini",
+    )
+    content = llm.get_completion("简略介绍一下牛顿")
+    assert content != ""
+
+
+def test_llm_real():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    key_filepath = "pten_keys.ini"
+    if not os.path.exists(key_filepath):
+        pytest.skip(f"Key file not found: {key_filepath}")
+
+    llm = LLM(keys_filepath=key_filepath)
+    content = llm.get_completion("你好")
+    print(content)
     assert content != ""
 
 

@@ -199,6 +199,7 @@ class LLM(Notice):
             return None
 
     def get_completion(self, prompt):
+        logger.info(f"LLM prompt: {prompt}")
         response = self.client.chat.completions.create(
             model=self.model,
             messages=[

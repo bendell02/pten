@@ -6,6 +6,7 @@ third-party_untrack/
 pten_keys.ini
 pten_token.json
 test_for_py.py
+.claude
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

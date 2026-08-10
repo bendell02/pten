@@ -45,6 +45,18 @@ _file_formatter = logging.Formatter(
 )
 _MAX_BYTES = 30 * 1024 * 1024  # 30MB
 _BACKUP_COUNT = 3
+# delay=True：延迟到首次写入才创建文件，避免 import 阶段落下空的默认 pten.log
+_FILE_HANDLER_KWARGS = dict(maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, delay=True)
+
+
+def _ensure_log_dir(path):
+    """确保日志文件所在目录存在；目录无法创建时抛出异常交由调用方回退。
+
+    为相对 CWD 的纯文件名时，其目录即 CWD，通常已存在，makedirs 为空操作。
+    """
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
 
 
 def _set_file_handler(path):
@@ -57,11 +69,13 @@ def _set_file_handler(path):
             except Exception:
                 pass
     try:
-        fh = RotatingFileHandler(path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT)
+        _ensure_log_dir(path)
+        fh = RotatingFileHandler(path, **_FILE_HANDLER_KWARGS)
     except Exception:
-        # 路径不可用（目录不存在、无权限等）时回退到默认路径，保证日志不丢
+        # 路径不可用（目录无法创建、无权限等）时回退到默认路径，保证日志不丢
         path = DEFAULT_LOG_PATH
-        fh = RotatingFileHandler(path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT)
+        _ensure_log_dir(path)
+        fh = RotatingFileHandler(path, **_FILE_HANDLER_KWARGS)
     fh.setFormatter(_file_formatter)
     logger.addHandler(fh)
     return os.path.abspath(path)

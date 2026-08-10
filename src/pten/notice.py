@@ -211,27 +211,21 @@ class LLM(Notice):
         return response.choices[0].message.content
 
 
-class Deepseek(Notice):
+class Deepseek(LLM):
+    """DeepSeek 专用便捷类，等价于指向 DeepSeek 的 LLM
+
+    已由更通用的 LLM 类替代，保留以兼容旧代码；建议直接使用 LLM。
+    """
+
     def __init__(self, keys_filepath="pten_keys.ini", **kwargs):
-        super().__init__()
-        self.keys = Keys(keys_filepath)
-        sk_api_key = self.keys.get_key("notice", "deepseek_api_key")
-        self.deepseek_client = OpenAI(
-            api_key=sk_api_key,
+        sk_api_key = Keys(keys_filepath).get_key("notice", "deepseek_api_key")
+        super().__init__(
             base_url="https://api.deepseek.com",
-        )
-
-    def get_completion(self, prompt):
-        response = self.deepseek_client.chat.completions.create(
+            api_key=sk_api_key,
             model="deepseek-v4-flash",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant"},
-                {"role": "user", "content": prompt},
-            ],
-            stream=False,
+            keys_filepath=keys_filepath,
+            **kwargs,
         )
-
-        return response.choices[0].message.content
 
 
 class Weather(Notice):

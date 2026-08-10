@@ -1,4 +1,4 @@
-from .conftest import assert_fs_response
+from .conftest import assert_fs_response, use_real_keys
 import os
 from pten.fs_messager import BotMsgSender
 import pytest
@@ -30,6 +30,9 @@ def test_send_card(mocker):
 
 
 def test_send_card_real():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
     key_filepath = "pten_keys.ini"
     if not os.path.exists(key_filepath):
         pytest.skip(f"Key file not found: {key_filepath}")

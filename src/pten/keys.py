@@ -20,6 +20,9 @@ class Keys:
     :param keys_filepath: The path of the keys file. Default is "pten_keys.ini"
     """
 
+    # 命名 LLM provider 段前缀，如 [llm:openai]
+    LLM_SECTION_PREFIX = "llm:"
+
     def __init__(self, keys_filepath="pten_keys.ini", *args, **kwargs):
         self.key_cfg = ConfigParser()
         self.keys_filepath = Path(keys_filepath)
@@ -91,6 +94,17 @@ class Keys:
             return self.get_key("globals", "log_path")
         except (configparser.Error, FileNotFoundError):
             return DEFAULT_LOG_PATH
+
+    def list_llm_providers(self):
+        """返回配置文件中所有 [llm:<name>] 命名段的 name 列表（按文件中出现顺序）。"""
+        cfg = ConfigParser()
+        if self.keys_filepath.is_file():
+            cfg.read(self.keys_filepath)
+        return [
+            s[len(Keys.LLM_SECTION_PREFIX) :]
+            for s in cfg.sections()
+            if s.startswith(Keys.LLM_SECTION_PREFIX)
+        ]
 
     def get_proxies(self):
         proxies = None

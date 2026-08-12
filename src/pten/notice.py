@@ -157,45 +157,84 @@ class Birthday(Notice):
 class LLM(Notice):
     """通用大模型对话类，适配任意 OpenAI 兼容接口
 
-    可直接传入 base_url 与 api_key 即可对话，也可省略后从 [notice] 配置读取：
-      llm_base_url / llm_api_key / llm_model
+    支持两种配置方式，直接传入的参数始终优先于配置：
 
+    1. 默认（不传 ``provider``）：从 ``[notice]`` 段读
+       ``llm_base_url`` / ``llm_api_key`` / ``llm_model``。
+    2. 命名 provider（传 ``provider="openai"``）：从 ``[llm:openai]`` 段读
+       ``base_url`` / ``api_key`` / ``model``。
+
+    :param provider: 命名 provider 名称，对应 ``[llm:<provider>]`` 段；为空则走 ``[notice]`` 默认配置
     :param base_url: OpenAI 兼容的服务地址，如 https://api.deepseek.com
     :param api_key: 服务对应的 api key
     :param model: 模型名称，如 deepseek-v4-flash、gpt-4o-mini
     :param system_prompt: 系统提示词，默认 "You are a helpful assistant"
-    :param keys_filepath: 当 base_url/api_key/model 未直接传入时，从此文件读取
+    :param keys_filepath: 当参数未直接传入时，从此文件读取配置
     """
+
+    # LLM 默认系统提示词
+    DEFAULT_SYSTEM_PROMPT = "You are a helpful assistant"
 
     def __init__(
         self,
+        provider=None,
         base_url=None,
         api_key=None,
         model=None,
-        system_prompt="You are a helpful assistant",
+        system_prompt=DEFAULT_SYSTEM_PROMPT,
         keys_filepath="pten_keys.ini",
-        **kwargs,
     ):
         super().__init__()
         self.keys = Keys(keys_filepath)
 
-        # 直接传入的参数优先，未传入则回退到 [notice] 配置
-        self.base_url = base_url or self._get_notice_key("llm_base_url")
-        self.api_key = api_key or self._get_notice_key("llm_api_key")
-        self.model = model or self._get_notice_key("llm_model")
+        # 直接传入的参数优先，未传入则按 provider 来源回退到配置
+        if provider:
+            # 命名 provider：从 [llm:<provider>] 段读
+            section = Keys.LLM_SECTION_PREFIX + provider
+            self.base_url = base_url or self._get_key(section, "base_url")
+            self.api_key = api_key or self._get_key(section, "api_key")
+            self.model = model or self._get_key(section, "model")
+        else:
+            # 默认：从 [notice] 段读 llm_base_url / llm_api_key / llm_model
+            self.base_url = base_url or self._get_key("notice", "llm_base_url")
+            self.api_key = api_key or self._get_key("notice", "llm_api_key")
+            self.model = model or self._get_key("notice", "llm_model")
+
+        # system_prompt 仅来自参数（默认 DEFAULT_SYSTEM_PROMPT）
         self.system_prompt = system_prompt
 
         if not self.base_url or not self.api_key or not self.model:
-            info = "base_url、api_key、model 不能为空，请直接传入或在 [notice] 中配置llm_base_url / llm_api_key / llm_model"
-            raise ValueError(info)
+            raise ValueError(self._missing_config_error(provider))
 
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
 
-    def _get_notice_key(self, option):
+    def _missing_config_error(self, provider):
+        """配置不全时的报错信息：命名 provider 区分名字写错与段内缺键，并列出可用 provider。"""
+        # 配置文件缺失时补充提示，避免用户误以为只是 provider 名写错
+        file_hint = ""
+        if not self.keys.keys_filepath.is_file():
+            file_hint = f"（注意：配置文件 {self.keys.keys_filepath} 不存在）"
+        if not provider:
+            return (
+                "base_url、api_key、model 不能为空。"
+                "默认方式请配置 [notice] 段（llm_base_url/llm_api_key/llm_model），"
+                "或直接传入对应参数。" + file_hint
+            )
+        available = self.keys.list_llm_providers()
+        section = Keys.LLM_SECTION_PREFIX + provider
+        if provider not in available:
+            info = f"未找到 provider '{provider}' 对应的 [{section}] 段，可用 provider: {available}；或直接传入 base_url/api_key/model。"
+            return info + file_hint
+        return (
+            f"[{section}] 段配置不全（缺 base_url/api_key/model 之一）；"
+            f"可用 provider: {available}；或直接传入对应参数。"
+        )
+
+    def _get_key(self, section, option):
         try:
-            return self.keys.get_key("notice", option)
+            return self.keys.get_key(section, option)
         except (configparser.Error, FileNotFoundError):
-            logger.warning(f"Can not find {option} in keys ini file")
+            logger.warning(f"Can not find {option} in [{section}]")
             return None
 
     def get_completion(self, prompt):

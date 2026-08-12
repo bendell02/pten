@@ -92,3 +92,16 @@ def test_get_log_path_configured(tmp_path, monkeypatch):
     # 构造 Keys 时应顺带把日志 handler 切到该路径
     expected = os.path.normpath(os.path.join(str(tmp_path), "my.log"))
     assert os.path.normpath(pten._current_log_path) == expected
+
+
+def test_list_llm_providers(tmp_path):
+    ini = tmp_path / "keys.ini"
+    ini.write_text(
+        "[notice]\nseniverse_api_key=k\n"
+        "[llm:openai]\nbase_url=x\napi_key=y\nmodel=z\n"
+        "[llm:qwen]\nbase_url=x\napi_key=y\nmodel=z\n",
+        encoding="utf-8",
+    )
+    keys = Keys(str(ini))
+    # 按文件中出现顺序返回所有 [llm:<name>] 段的 name
+    assert keys.list_llm_providers() == ["openai", "qwen"]

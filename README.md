@@ -100,6 +100,17 @@ deepseek_api_key=sk-0a6e5b4e8b4c0e1a5b6b8e0e4d5aefb
 ;weather
 seniverse_api_key=v5bFw3o1pSmbGvuEN
 
+;命名 LLM provider(OpenAI 兼容)，每个 [llm:<name>] 段对应一套模型配置
+;用 LLM(provider="<name>") 按名字选用；可用 Keys.list_llm_providers() 枚举
+;[llm:deepseek]
+;base_url=https://api.deepseek.com
+;api_key=sk-xxxxxxxx
+;model=deepseek-v4-flash
+;
+;[llm:openai]
+;base_url=https://api.openai.com/v1
+;api_key=sk-xxxxxxxx
+;model=gpt-4o-mini
 ```
 ### 3.2 配置文件字段说明
 | section  | 字段名称  | 字段说明 |
@@ -121,6 +132,9 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |         | llm_model | 通用大模型(OpenAI兼容)的模型名称。LLM类未直接传入 model 时从此读取 |
 |         | deepseek_api_key | deepseek 的 api_key，仅供 `Deepseek` 类使用。建议改用 `LLM` 类配合 `llm_*` 配置 |
 |         | seniverse_api_key | 心知天气的api_key。使用Weather类获取天气时可传入 |
+| llm:<name> | base_url | 命名 provider 的 OpenAI 兼容服务地址。`LLM(provider="<name>")` 时从此段读取 |
+|         | api_key | 命名 provider 的 api_key。`LLM(provider="<name>")` 时从此段读取 |
+|         | model | 命名 provider 的模型名称。`LLM(provider="<name>")` 时从此段读取 |
 
 - 为什么需要proxies？ 什么情况使用？  
 > 因为企业微信API是需要配置可信ip，只有可信ip才能调用API。如果本地网络的ip经常变，那么每次调用API都需要重新配置可信ip，比较麻烦。可以配置代理，让企业微信API调用时走代理，把代理的ip配置到可信ip里，这样就可以避免这个问题。
@@ -226,6 +240,48 @@ content = llm.get_completion("简略介绍一下牛顿")
 ```
 
 也可将 `llm_base_url`、`llm_api_key`、`llm_model` 配置在 `[notice]` 中，省略参数直接 `LLM()` 读取。
+
+#### 4.2.4 配置多套 LLM provider
+
+当需要同时使用多个模型（如 DeepSeek、OpenAI、本地模型各一套）时，可以为每个 provider 配置一个 `[llm:<name>]` 段，再用 `LLM(provider="<name>")` 按名字切换，无需在代码里硬编码地址和密钥：
+
+```ini
+[llm:deepseek]
+base_url=https://api.deepseek.com
+api_key=sk-deepseek-xxxxxxxx
+model=deepseek-v4-flash
+
+[llm:openai]
+base_url=https://api.openai.com/v1
+api_key=sk-openai-xxxxxxxx
+model=gpt-4o-mini
+```
+
+```python
+from pten.notice import LLM
+
+# 按名字选用对应 provider，参数全部从 [llm:<name>] 段读取
+deepseek = LLM(provider="deepseek")
+print(deepseek.get_completion("用一句话介绍黑洞"))
+
+openai = LLM(provider="openai")
+print(openai.get_completion("Translate 'hello' to French"))
+
+# 显式传入的参数始终优先于配置，方便临时覆盖某个字段
+gpt4 = LLM(provider="openai", model="gpt-4o")
+```
+
+- 每个 `[llm:<name>]` 段需配置 `base_url`、`api_key`、`model`，三者缺一会抛 `ValueError`。`system_prompt` 作为构造参数传入，未传时默认 `"You are a helpful assistant"`。
+- `provider` 名写错或段内缺键时，报错信息会列出当前可用的 provider，便于定位。
+- 可用 `Keys.list_llm_providers()` 枚举配置文件中所有 `[llm:<name>]` 段的名字。
+- 不传 `provider` 时仍走 `[notice]` 的 `llm_*` 默认配置，向后兼容。
+
+```python
+from pten.keys import Keys
+
+keys = Keys()
+print(keys.list_llm_providers())  # 例如 ['deepseek', 'openai']
+```
 
 > `Deepseek` 类已由更通用的 `LLM` 类替代，建议改用 `LLM`。`Deepseek` 仍保留以兼容旧代码。
 

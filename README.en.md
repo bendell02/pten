@@ -101,6 +101,17 @@ deepseek_api_key=sk-0a6e5b4e8b4c0e1a5b6b8e0e4d5aefb
 ;weather
 seniverse_api_key=v5bFw3o1pSmbGvuEN
 
+;named LLM providers (OpenAI compatible), one [llm:<name>] section per provider
+;select with LLM(provider="<name>"); enumerate via Keys.list_llm_providers()
+;[llm:deepseek]
+;base_url=https://api.deepseek.com
+;api_key=sk-xxxxxxxx
+;model=deepseek-v4-flash
+;
+;[llm:openai]
+;base_url=https://api.openai.com/v1
+;api_key=sk-xxxxxxxx
+;model=gpt-4o-mini
 ```
 ### 3.2 Configuration File Field Descriptions
 | section  | Field Name  | Field Description |
@@ -122,6 +133,9 @@ seniverse_api_key=v5bFw3o1pSmbGvuEN
 |         | llm_model | General LLM (OpenAI-compatible) model name. Read by the LLM class when model is not passed directly. |
 |         | deepseek_api_key | Deepseek API key, used by the Deepseek class only. Prefer the LLM class with the llm_* fields. |
 |         | seniverse_api_key | The API key for Seniverse Weather. Can be passed when using the Weather class to fetch weather information. |
+| llm:<name> | base_url | The OpenAI-compatible service base URL for a named provider. Read from this section by `LLM(provider="<name>")`. |
+|         | api_key | The API key for a named provider. Read from this section by `LLM(provider="<name>")`. |
+|         | model | The model name for a named provider. Read from this section by `LLM(provider="<name>")`. |
 
 • Why are proxies needed? When are they used?  
 > Because the WeChat Work API requires configuring trusted IPs, and only trusted IPs can call the API. If the local network's IP changes frequently, you would need to reconfigure the trusted IP each time you call the API, which is cumbersome. By configuring a proxy, you can route the WeChat Work API calls through the proxy and configure the proxy's IP as a trusted IP, thus avoiding this issue.
@@ -226,6 +240,48 @@ content = llm.get_completion("Briefly introduce Newton")
 ```
 
 You can also set `llm_base_url`, `llm_api_key`, and `llm_model` under `[notice]` and call `LLM()` with no arguments.
+
+#### 4.2.4 Configuring Multiple LLM Providers
+
+When you need to use several models at once (e.g. one each for DeepSeek, OpenAI, and a local model), configure a `[llm:<name>]` section per provider and switch by name with `LLM(provider="<name>")`, without hardcoding URLs and keys in code:
+
+```ini
+[llm:deepseek]
+base_url=https://api.deepseek.com
+api_key=sk-deepseek-xxxxxxxx
+model=deepseek-v4-flash
+
+[llm:openai]
+base_url=https://api.openai.com/v1
+api_key=sk-openai-xxxxxxxx
+model=gpt-4o-mini
+```
+
+```python
+from pten.notice import LLM
+
+# Pick a provider by name; all params are read from its [llm:<name>] section
+deepseek = LLM(provider="deepseek")
+print(deepseek.get_completion("Introduce black holes in one sentence"))
+
+openai = LLM(provider="openai")
+print(openai.get_completion("Translate 'hello' to French"))
+
+# Explicit params always take precedence over config, handy for overriding a single field
+gpt4 = LLM(provider="openai", model="gpt-4o")
+```
+
+- Each `[llm:<name>]` section requires `base_url`, `api_key`, and `model`; missing any one raises `ValueError`. `system_prompt` is passed as a constructor argument, defaulting to `"You are a helpful assistant"` when not provided.
+- If the `provider` name is unknown or a required key is missing, the error lists the available providers for easy debugging.
+- Use `Keys.list_llm_providers()` to enumerate all `[llm:<name>]` sections in the config file.
+- Without `provider`, the `[notice]` `llm_*` defaults are used, keeping backward compatibility.
+
+```python
+from pten.keys import Keys
+
+keys = Keys()
+print(keys.list_llm_providers())  # e.g. ['deepseek', 'openai']
+```
 
 > The `Deepseek` class has been superseded by the more general `LLM` class; prefer `LLM`. `Deepseek` is kept for backward compatibility.
 

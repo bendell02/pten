@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.6 - 20260813
+1. feat: 一个配置文件里支持多套LLM provider
+
 ## 0.4.5 - 2026-08-11
 - feat: Deepseek基于LLM类改写
 - fix: 解决设置日志路径时的空pten.log问题

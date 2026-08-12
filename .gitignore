@@ -5,7 +5,7 @@ third-party_untrack/
 *jsapi_ticket.json
 pten_keys.ini
 pten_token.json
-test_for_py.py
+stat_for_py.py
 .claude
 
 # Byte-compiled / optimized / DLL files

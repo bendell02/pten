@@ -1,4 +1,4 @@
-from .conftest import assert_response
+from .conftest import assert_ww_response
 from pathlib import Path
 from pten.wwmessager import BotMsgSender, AppMsgSender
 
@@ -11,30 +11,30 @@ def test_bot_msg_sender(mocker):
     current_dir = Path(__file__).resolve().parent
 
     response = bot.send_text(content="hello world")
-    assert_response(response)
+    assert_ww_response(response)
 
     markdown_content = '<font color="info">Hello world</font>'
     response = bot.send_markdown(markdown_content)
-    assert_response(response)
+    assert_ww_response(response)
 
     image_path = str(current_dir) + "/sample_data/sample_image.png"
     response = bot.send_image(image_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     voice_path = str(current_dir) + "/sample_data/sample_voice.amr"
     response = bot.send_voice(voice_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     title = "中秋节礼品领取"
     description = "今年中秋节公司有豪礼相送"
     link_url = "www.qq.com"
     picurl = "http://res.mail.qq.com/node/ww/wwopenmng/images/independent/doc/test_pic_msg1.png"
     response = bot.send_news(title, description, link_url, picurl)
-    assert_response(response)
+    assert_ww_response(response)
 
     file_path = str(current_dir) + "/sample_data/sample_file.txt"
     response = bot.send_file(file_path)
-    assert_response(response)
+    assert_ww_response(response)
 
 
 def test_app_msg_sender(mocker):
@@ -56,34 +56,34 @@ def test_app_msg_sender(mocker):
     current_dir = Path(__file__).resolve().parent
 
     response = app.send_text("hello world from app")
-    assert_response(response)
+    assert_ww_response(response)
 
     markdown_content = '<font color="info">Hello world</font>'
     response = app.send_markdown(markdown_content)
-    assert_response(response)
+    assert_ww_response(response)
 
     image_path = str(current_dir) + "/sample_data/sample_image.png"
     response = app.send_image(image_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     voice_path = str(current_dir) + "/sample_data/sample_voice.amr"
     response = app.send_voice(voice_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     video_path = str(current_dir) + "/sample_data/sample_video.mp4"
     response = app.send_video(video_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     title = "中秋节礼品领取"
     description = "今年中秋节公司有豪礼相送"
     link_url = "www.qq.com"
     picurl = "http://res.mail.qq.com/node/ww/wwopenmng/images/independent/doc/test_pic_msg1.png"
     response = app.send_news(title, description, link_url, picurl)
-    assert_response(response)
+    assert_ww_response(response)
 
     file_path = str(current_dir) + "/sample_data/sample_file.txt"
     response = app.send_file(file_path)
-    assert_response(response)
+    assert_ww_response(response)
 
     title = "Hello"
     image_path = str(current_dir) + "/sample_data/sample_image.png"
@@ -94,13 +94,13 @@ def test_app_msg_sender(mocker):
     response = app.send_mpnews(
         title, image_path, content, author, content_source_url, digest
     )
-    assert_response(response)
+    assert_ww_response(response)
 
     title = "Hello"
     description = "description"
     url = "https://www.qq.com"
     response = app.send_card(title, description, url, touser=["PengYong"])
-    assert_response(response)
+    assert_ww_response(response)
 
     name = "chatid"
     owner = "owner"
@@ -108,11 +108,11 @@ def test_app_msg_sender(mocker):
     chatid = "chatid"
     show_chat = True
     response = app.create_chat(name, owner, userlist, chatid, show_chat)
-    assert_response(response)
+    assert_ww_response(response)
 
     chatid = "chatid"
     response = app.send_text(content="hello world from app", chatid=chatid)
-    assert_response(response)
+    assert_ww_response(response)
 
 
 def test_send_template_card(mocker):
@@ -138,7 +138,7 @@ def test_send_template_card(mocker):
         "card_action": {"type": 1, "url": "https://work.weixin.qq.com/?from=openApi"},
     }
     response = sender.send_template_card(template_card)
-    assert_response(response)
+    assert_ww_response(response)
 
     # template_card_news_notice
     template_card = {
@@ -185,4 +185,4 @@ def test_send_template_card(mocker):
         "card_action": {"type": 1, "url": "https://work.weixin.qq.com/?from=openApi"},
     }
     response = sender.send_template_card(template_card)
-    assert_response(response)
+    assert_ww_response(response)

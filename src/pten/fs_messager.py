@@ -1,18 +1,14 @@
 """
-pten.wwmessager
-~~~~~~~~~~~~
+pten.fs_messager
+~~~~~~~~~~~~~~~~
 
-This module implements the Messager class.
-
-Many codes are from “corpwechatbot"
-
+This module implements the Messager class for Feishu.
 """
 
 from . import logger
 from .keys import Keys
-from .fs_api import BotApi, BOT_API_TYPE
-import base64
-from hashlib import md5
+from .fs_api import BotApi, BOT_API_TYPE, CorpApi, CORP_API_TYPE
+import json
 from pathlib import Path
 from queue import Queue
 import time
@@ -39,6 +35,7 @@ class MsgSender:
             "mpnews_error": "mp图文消息不合法",
             "taskcard_error": "任务卡片消息不合法",
             "create_chat_error": "群聊创建失败，人数不能低于2",
+            "receive_id_error": "消息接收者(receive_id)不能为空",
         }
 
     def _get_media_id(self, media_type: str, p_media: Path):
@@ -136,10 +133,23 @@ class MsgSender:
         """
         raise NotImplementedError
 
+    @staticmethod
+    def _build_simple_card(title, content, template="blue"):
+        """构造一个带标题和正文的简单卡片，供各 sender 的 send_card 共用"""
+        return {
+            "header": {
+                "template": template,
+                "title": {"tag": "plain_text", "content": title},
+            },
+            "elements": [
+                {"tag": "div", "text": {"tag": "lark_md", "content": content}}
+            ],
+        }
+
 
 class BotMsgSender(MsgSender):
     """
-    企业微信机器人，支持文本、markdown、图片、图文、文件、语音类型数据的发送
+    飞书机器人，支持文本、卡片类型数据的发送
     """
 
     def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
@@ -181,7 +191,7 @@ class BotMsgSender(MsgSender):
         """
         if not content:
             logger.error(self.errmsgs["text_error"])
-            return {"errcode": 404, "errmsg": self.errmsgs["text_error"]}
+            return {"code": -1, "msg": self.errmsgs["text_error"]}
         data = {
             "content": {
                 "text": content,
@@ -201,13 +211,100 @@ class BotMsgSender(MsgSender):
         if not (title and content):
             logger.error(self.errmsgs["card_error"])
             return {"code": -1, "msg": self.errmsgs["card_error"]}
-        card = {
-            "header": {
-                "template": template,
-                "title": {"tag": "plain_text", "content": title},
-            },
-            "elements": [
-                {"tag": "div", "text": {"tag": "lark_md", "content": content}}
-            ],
-        }
+        card = self._build_simple_card(title, content, template)
         return self._send(msg_type="interactive", data={"card": card})
+
+
+class AppMsgSender(MsgSender):
+    """
+    飞书自建应用消息推送器：把消息发给指定用户或群聊，
+    鉴权由 CorpApi 的 tenant_access_token 完成
+    """
+
+    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+        super().__init__(keys_filepath, keys=keys, **kwargs)
+        self.api = CorpApi(keys_filepath, keys=keys)
+        # [fs] 可选配置默认接收者：未显式传 receive_id 的发送会发给它
+        self.default_receive_id = self.keys.get_fs_receive_id()
+        self.default_receive_id_type = self.keys.get_fs_receive_id_type()
+
+    def _send(self, msg_type="", content=None, receive_id=None, receive_id_type=None):
+        """
+        统一内部发送接口，供不同消息推送方法调用
+        :param msg_type: 消息类型，如 text / interactive
+        :param content: 消息体对象，im 接口要求 content 为 JSON 字符串，发送前序列化
+        :param receive_id: 消息接收者，缺省回退 [fs] 配置的默认接收者
+        :param receive_id_type: 接收者 ID 类型：open_id / user_id / union_id / email / chat_id，
+            使用默认接收者时回退 [fs] 配置的类型，否则 open_id
+        :return: 消息发送结果
+        """
+        if not receive_id:
+            receive_id = self.default_receive_id
+            # 默认接收者配套的 ID 类型（未配置则回退 open_id）
+            if not receive_id_type:
+                receive_id_type = self.default_receive_id_type
+
+        if not receive_id:
+            logger.error(self.errmsgs["receive_id_error"])
+            return {"code": -1, "msg": self.errmsgs["receive_id_error"]}
+
+        if not receive_id_type:
+            receive_id_type = "open_id"
+
+        data = {
+            "receive_id": receive_id,
+            "msg_type": msg_type,
+            "content": json.dumps(content, ensure_ascii=False),
+        }
+        # receive_id_type 是查询参数，发送前替换端点 URL 中的占位符
+        shortUrl, method = CORP_API_TYPE["MESSAGE_SEND"]
+        return self.api.http_call(
+            [shortUrl.replace("RECEIVE_ID_TYPE", receive_id_type), method], data
+        )
+
+    def send_text(self, content, receive_id=None, receive_id_type=None):
+        """
+        发送文本消息给用户或群聊
+        :param content: 文本内容，最长不超过150个字符
+        :param receive_id: 消息接收者，缺省用 [fs] 配置的默认接收者
+        :param receive_id_type: 接收者 ID 类型，缺省 open_id（使用默认接收者时可用 [fs] 配置覆盖）
+        :return: 消息发送结果
+        """
+        if not content:
+            logger.error(self.errmsgs["text_error"])
+            return {"code": -1, "msg": self.errmsgs["text_error"]}
+        return self._send(
+            msg_type="text",
+            content={"text": content},
+            receive_id=receive_id,
+            receive_id_type=receive_id_type,
+        )
+
+    def send_card(
+        self,
+        title,
+        content,
+        template="blue",
+        receive_id=None,
+        receive_id_type=None,
+    ):
+        """
+        发送卡片消息(interactive)给用户或群聊，构造一个带标题和正文的简单卡片
+        :param title: 卡片标题
+        :param content: 卡片正文，支持 lark_md 语法
+        :param template: 卡片头部配色模板，默认 blue，可选 red/orange/yellow/green/indigo/grey 等
+        :param receive_id: 消息接收者，缺省用 [fs] 配置的默认接收者
+        :param receive_id_type: 接收者 ID 类型，缺省 open_id（使用默认接收者时可用 [fs] 配置覆盖）
+        :return: 消息发送结果
+        卡片结构参考 https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/feishu-cards/card-json-structure/credat-card
+        """
+        if not (title and content):
+            logger.error(self.errmsgs["card_error"])
+            return {"code": -1, "msg": self.errmsgs["card_error"]}
+        card = self._build_simple_card(title, content, template)
+        return self._send(
+            msg_type="interactive",
+            content=card,
+            receive_id=receive_id,
+            receive_id_type=receive_id_type,
+        )

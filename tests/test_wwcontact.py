@@ -1,4 +1,4 @@
-from .conftest import assert_response
+from .conftest import assert_ww_response
 from pten.wwcontact import Contact
 
 
@@ -17,25 +17,25 @@ def test_contact(mocker):
 
     userid = "userid"
     response = contact.get_user(userid)
-    assert_response(response)
+    assert_ww_response(response)
 
     department_id = "2"
     response = contact.get_user_simple_list(department_id)
-    assert_response(response)
+    assert_ww_response(response)
 
     department_id = "2"
     response = contact.get_user_list(department_id)
-    assert_response(response)
+    assert_ww_response(response)
 
     size_type = "2"
     response = contact.get_join_qrcode(size_type)
-    assert_response(response)
+    assert_ww_response(response)
 
     response = contact.get_user_id_list()
-    assert_response(response)
+    assert_ww_response(response)
 
     response = contact.get_department_simplelist()
-    assert_response(response)
+    assert_ww_response(response)
 
     response = contact.get_tag_list()
-    assert_response(response)
+    assert_ww_response(response)

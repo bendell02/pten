@@ -24,6 +24,7 @@ def test_key_path_not_exist():
         ("ww", "contact_sync_secret", "G4PC19fIwfsykabdv_drNVlOIe_crBvay3sUX8DhGss"),
         ("ww", "corpid", "wwdb63ff5ae01cd4b4"),
         ("ww", "webhook_key", "7ande764-52a4-43d7-a252-05e8abcdb863"),
+        ("fs", "receive_id", "ou_84a7b7e2d5219af3c6b0e4d8a2f1c5d6"),
         ("notice", "deepseek_api_key", "sk-0a6e5b4e8b4c0e1a5b6b8e0e4d5aefb"),
         ("notice", "seniverse_api_key", "v5bFw3o1pSmbGvuEN"),
     ],
@@ -92,6 +93,47 @@ def test_get_log_path_configured(tmp_path, monkeypatch):
     # 构造 Keys 时应顺带把日志 handler 切到该路径
     expected = os.path.normpath(os.path.join(str(tmp_path), "my.log"))
     assert os.path.normpath(pten._current_log_path) == expected
+
+
+def test_access_token_cache_per_key(key_filepath_example, tmp_path):
+    keys = Keys(key_filepath_example)
+    # token 缓存文件重定向到临时目录
+    keys.TOKEN_PATH = tmp_path / "pten_token.json"
+
+    keys.save_access_token("ww_xxx", "ww-token")
+    keys.save_access_token("fs_yyy", "fs-token")
+
+    # 多个 token_key（企业微信 ww_* / 飞书 fs_*）在同一实例上互不串扰
+    assert keys.get_access_token("ww_xxx") == "ww-token"
+    assert keys.get_access_token("fs_yyy") == "fs-token"
+
+
+def test_optional_config_missing(tmp_path):
+    # 可选配置（contact_sync_secret / fs 默认接收者）未写入时返回 None 而不是
+    # 抛异常——contact_sync_secret 曾因捕获了错误的异常类型导致兜底从未生效
+    ini = tmp_path / "keys_min.ini"
+    ini.write_text("[ww]\ncorpid=x\n[fs]\napp_id=cli_x\n", encoding="utf-8")
+    keys = Keys(str(ini))
+    assert keys.get_contact_sync_secret() is None
+    assert keys.get_fs_receive_id() is None
+    assert keys.get_fs_receive_id_type() is None
+
+
+def test_keys_file_utf8_comment(tmp_path):
+    # UTF-8 保存的中文注释应能正常读取（本地编码非 UTF-8 时曾触发解码错误）
+    ini = tmp_path / "keys_utf8.ini"
+    ini.write_text("[fs]\n;中文注释\nreceive_id=ou_x\n", encoding="utf-8")
+    keys = Keys(str(ini))
+    assert keys.get_key("fs", "receive_id") == "ou_x"
+
+
+def test_keys_file_utf8_bom(tmp_path):
+    # Windows 记事本保存的 UTF-8 with BOM 同样应能正常读取
+    # （用 utf-8 读会抛 MissingSectionHeaderError，不被 UnicodeDecodeError 回退捕获）
+    ini = tmp_path / "keys_bom.ini"
+    ini.write_text("[fs]\n;中文注释\nreceive_id=ou_x\n", encoding="utf-8-sig")
+    keys = Keys(str(ini))
+    assert keys.get_key("fs", "receive_id") == "ou_x"
 
 
 def test_list_llm_providers(tmp_path):

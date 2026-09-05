@@ -28,8 +28,7 @@ class Keys:
         self.keys_filepath = Path(keys_filepath)
         self.TOKEN_PATH = Path("pten_token.json")
         self.bot_weebhook_key = None
-        self.access_token = None
-        self.access_token_expire_time = float("-inf")
+        self.access_tokens = {}
         self.corp_jsapi_ticket = None
         self.corp_jsapi_ticket_expire_time = float("-inf")
         self.app_jsapi_ticket = None
@@ -43,6 +42,18 @@ class Keys:
         if not self.keys_filepath.is_file():
             logger.error(f"Can not find file {self.keys_filepath}")
 
+    def _read_keys_file(self, cfg: ConfigParser, path):
+        """读取 ini 文件：优先按 UTF-8 解析，失败时回退系统本地编码。
+
+        utf-8-sig 既剥 BOM又兼容无 BOM 的普通 UTF-8。
+        """
+        try:
+            cfg.read(path, encoding="utf-8-sig")
+        except UnicodeDecodeError:
+            # 兼容以本地编码（如 GBK）写就的历史配置文件
+            cfg.clear()
+            cfg.read(path)
+
     def _get_local_keys(self, section: str, options=[]):
         """Get keys from local file
         :param section: Section name of the keys
@@ -51,7 +62,7 @@ class Keys:
         """
         if self.keys_filepath.is_file():
             self.key_cfg.clear()
-            self.key_cfg.read(self.keys_filepath)
+            self._read_keys_file(self.key_cfg, self.keys_filepath)
             try:
                 for option in options:
                     yield self.key_cfg.get(section, option)
@@ -99,7 +110,7 @@ class Keys:
         """返回配置文件中所有 [llm:<name>] 命名段的 name 列表（按文件中出现顺序）。"""
         cfg = ConfigParser()
         if self.keys_filepath.is_file():
-            cfg.read(self.keys_filepath)
+            self._read_keys_file(cfg, self.keys_filepath)
         return [
             s[len(Keys.LLM_SECTION_PREFIX) :]
             for s in cfg.sections()
@@ -128,10 +139,24 @@ class Keys:
     def get_contact_sync_secret(self):
         try:
             s = self.get_key("ww", "contact_sync_secret")
-        except StopIteration:
+        except (configparser.Error, FileNotFoundError):
             logger.warning("Can not find contact_sync_secret in keys ini file")
             s = None
         return s
+
+    def get_fs_receive_id(self):
+        """读 [fs] receive_id：飞书应用消息的默认接收者，未配置返回 None"""
+        try:
+            return self.get_key("fs", "receive_id")
+        except (configparser.Error, FileNotFoundError):
+            return None
+
+    def get_fs_receive_id_type(self):
+        """读 [fs] receive_id_type：默认接收者的 ID 类型，未配置返回 None"""
+        try:
+            return self.get_key("fs", "receive_id_type")
+        except (configparser.Error, FileNotFoundError):
+            return None
 
     @staticmethod
     def load_from_file(file_path: Path, key):
@@ -154,25 +179,30 @@ class Keys:
         file_path.write_text(json.dumps(token_dict))
 
     def get_access_token(self, token_key):
-        if self.access_token_expire_time > datetime.now().timestamp():
-            return self.access_token
+        now = datetime.now().timestamp()
+        token_info = self.access_tokens.get(token_key)
+        if token_info and token_info.get("expire_time", float("-inf")) > now:
+            return token_info["access_token"]
 
         token_info = Keys.load_from_file(self.TOKEN_PATH, token_key)
-        self.access_token_expire_time = token_info.get("expire_time", float("-inf"))
-        if self.access_token_expire_time < datetime.now().timestamp():
+        self.access_tokens[token_key] = token_info
+        if token_info.get("expire_time", float("-inf")) < now:
             logger.warning(f"Token of {token_key} is expired.")
             raise Exception("Token expired")
 
-        self.access_token = token_info["access_token"]
-        return self.access_token
+        return token_info["access_token"]
 
-    def save_access_token(self, token_key, access_token):
-        self.access_token = access_token
-        self.access_token_expire_time = datetime.now().timestamp() + 7200
+    def save_access_token(self, token_key, access_token, expire=7200):
+        """持久化 access token；expire 为有效期秒数，缺省 7200（2 小时）。
+
+        飞书等厂商在 token 响应里返回实际有效期（``expire`` 字段），调用方可
+        透传该值，避免平台调整有效期时客户端误判。
+        """
         token_info = {
             "access_token": access_token,
-            "expire_time": self.access_token_expire_time,
+            "expire_time": datetime.now().timestamp() + expire,
         }
+        self.access_tokens[token_key] = token_info
         Keys.save_to_file(self.TOKEN_PATH, token_key, token_info)
 
     def get_corp_jsapi_ticket(self, token_key):

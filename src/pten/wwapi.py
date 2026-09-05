@@ -9,8 +9,7 @@ This module implements the WeWork API. It is from https://github.com/sbzhu/wewor
 from . import logger
 from .keys import Keys
 from . import base_api
-from .base_api import ApiException
-import hashlib
+from .base_api import ApiException, make_token_key
 
 
 class AbstractApi(base_api.AbstractApi):
@@ -381,9 +380,7 @@ class CorpApi(AbstractApi):
         corpsecret_in_file = self.keys.get_key("ww", "app_secret")
         self.corpsecret = corpsecret if corpsecret else corpsecret_in_file
 
-        self._token_key = hashlib.sha1(
-            bytes(self.corpid + self.corpsecret, encoding="utf-8")
-        ).hexdigest()
+        self._token_key = make_token_key("ww_", self.corpid, self.corpsecret)
 
     def get_access_token(self):
         try:

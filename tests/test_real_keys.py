@@ -1,34 +1,25 @@
-"""需要真实凭证（pten_keys.ini）的集成测试用例汇总。
+"""需要真实凭证（pten_keys.ini）的集成测试用例汇总。"""
 
-这些用例默认在 `use_real_keys=False` 时跳过，需在 tests/conftest.py 中把
-`use_real_keys` 置为 True 后才会实际调用企业微信 / 飞书 / LLM 等线上接口。
-用例分别从 test_wwapi / test_wwcrypt / test_notice / test_fs_api /
-test_fs_messager 抽取合并而来，原文件中只保留 mock 用例。
-"""
-
-import os
-import time
-import threading
 import datetime
+import os
+import threading
+import time
 
 import pytest
 from apscheduler.schedulers.blocking import BlockingScheduler
 from lunardate import LunarDate
 
 from pten import logger
-from pten.keys import Keys
-from pten.wwapi import BotApi, BOT_API_TYPE
-from pten.wwcrypt import WXBizMsgCrypt
-from pten.notice import Birthday, LLM, Weather
-from pten.wwmessager import BotMsgSender
 from pten.fs_api import CorpApi
-from pten.fs_messager import BotMsgSender as FsBotMsgSender, AppMsgSender
+from pten.fs_messager import AppMsgSender
+from pten.fs_messager import BotMsgSender as FsBotMsgSender
+from pten.keys import Keys
+from pten.notice import LLM, Birthday, Weather
+from pten.wwapi import BOT_API_TYPE, BotApi
+from pten.wwcrypt import WXBizMsgCrypt
+from pten.wwmessager import BotMsgSender
 
-from .conftest import (
-    use_real_keys,
-    enable_long_time_tests,
-    assert_fs_response,
-)
+from .conftest import assert_fs_response, enable_long_time_tests, use_real_keys
 
 
 # ---------------------------------------------------------------------------

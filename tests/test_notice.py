@@ -1,5 +1,6 @@
-from pten.notice import Birthday, Deepseek, LLM, Weather
 import pytest
+
+from pten.notice import LLM, Birthday, Deepseek, Weather
 
 
 def test_deepseek(mocker):

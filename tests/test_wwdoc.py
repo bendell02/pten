@@ -1,5 +1,6 @@
-from .conftest import assert_ww_response
 from pten.wwdoc import Doc
+
+from .conftest import assert_ww_response
 
 
 def test_wedoc(mocker):

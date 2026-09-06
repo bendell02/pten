@@ -1,12 +1,13 @@
-from .conftest import assert_fs_response, create_fs_mock_response
 import json
-
-import pytest
 from unittest.mock import MagicMock
 
+import pytest
+
 from pten.base_api import ApiException
-from pten.fs_api import BotApi, CorpApi, BOT_API_TYPE, CORP_API_TYPE
+from pten.fs_api import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
 from pten.keys import Keys
+
+from .conftest import assert_fs_response, create_fs_mock_response
 
 
 def test_bot_api(mocker):

@@ -1,5 +1,6 @@
-from .conftest import assert_ww_response
 from pten.wwcontact import Contact
+
+from .conftest import assert_ww_response
 
 
 def test_contact(mocker):

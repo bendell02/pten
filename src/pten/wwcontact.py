@@ -7,7 +7,7 @@ This module implements the Contact class.
 """
 
 from .keys import Keys
-from .wwapi import CorpApi, CORP_API_TYPE
+from .wwapi import CORP_API_TYPE, CorpApi
 
 
 def encode_url(url):

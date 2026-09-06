@@ -1,5 +1,6 @@
-from pten.wwapi import CorpApi, CORP_API_TYPE, BotApi, BOT_API_TYPE
 from unittest.mock import MagicMock
+
+from pten.wwapi import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
 
 
 def create_mock_response(else_response):

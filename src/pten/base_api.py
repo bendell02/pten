@@ -12,12 +12,14 @@ pten.base_api
 端点定义（``*_API_TYPE`` 字典）与高层子类（``BotApi`` / ``CorpApi`` 等）仍保留在各厂商模块中。
 """
 
-from . import logger
-from .keys import Keys
 import hashlib
 import json
-import requests
 from urllib.parse import urlencode
+
+import requests
+
+from . import logger
+from .keys import Keys
 
 
 class ApiException(Exception):

@@ -5,14 +5,15 @@ pten.fs_messager
 This module implements the Messager class for Feishu.
 """
 
-from . import logger
-from .keys import Keys
-from .fs_api import BotApi, BOT_API_TYPE, CorpApi, CORP_API_TYPE
 import json
+import time
 from pathlib import Path
 from queue import Queue
-import time
 from typing import Optional
+
+from . import logger
+from .fs_api import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
+from .keys import Keys
 
 
 class MsgSender:

@@ -1,9 +1,11 @@
-from .conftest import use_real_keys
-from pten.keys import Keys
 import os
-import pten
+
 import pytest
 
+import pten
+from pten.keys import Keys
+
+from .conftest import use_real_keys
 
 pytestmark = pytest.mark.skipif(use_real_keys, reason="Skipping when using real keys")
 

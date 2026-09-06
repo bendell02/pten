@@ -1,6 +1,7 @@
-from pten.wwcrypt import WXBizMsgCrypt
-from pten.keys import Keys
 import pytest
+
+from pten.keys import Keys
+from pten.wwcrypt import WXBizMsgCrypt
 
 
 @pytest.fixture()

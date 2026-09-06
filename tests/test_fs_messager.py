@@ -1,7 +1,9 @@
-from .conftest import assert_fs_response, create_fs_mock_response
 import json
-from pten.fs_messager import BotMsgSender, AppMsgSender
+
+from pten.fs_messager import AppMsgSender, BotMsgSender
 from pten.keys import Keys
+
+from .conftest import assert_fs_response, create_fs_mock_response
 
 
 def test_bot_msg_sender(mocker):

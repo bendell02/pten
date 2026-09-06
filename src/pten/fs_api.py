@@ -6,10 +6,9 @@ This module implements the Feishu API.
 
 """
 
-from . import logger
-from .keys import Keys
-from . import base_api
+from . import base_api, logger
 from .base_api import ApiException, make_token_key
+from .keys import Keys
 
 
 class AbstractApi(base_api.AbstractApi):

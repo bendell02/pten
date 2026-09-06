@@ -6,12 +6,13 @@ This module implements the keys class for getting keys from local file.
 
 """
 
-from . import logger, setup_logging, DEFAULT_LOG_PATH
 import configparser
+import json
 from configparser import ConfigParser
 from datetime import datetime
-import json
 from pathlib import Path
+
+from . import DEFAULT_LOG_PATH, logger, setup_logging
 
 
 class Keys:

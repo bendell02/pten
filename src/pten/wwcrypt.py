@@ -7,16 +7,17 @@ WXBizMsgCrypt code is from (https://github.com/sbzhu/weworkapi_python)
 WXBizMsgCrypt封装了VerifyURL, DecryptMsg, EncryptMsg三个接口，分别用于开发者验证回调url，收到用户回复消息的解密以及开发者回复消息的加密过程。
 """
 
-from . import logger
 import base64
-from Crypto.Cipher import AES
 import hashlib
+import random
 import socket
 import struct
-import random
 import time
 import xml.etree.cElementTree as ET
 
+from Crypto.Cipher import AES
+
+from . import logger
 
 WXBizMsgCrypt_OK = 0
 WXBizMsgCrypt_ValidateSignature_Error = -40001

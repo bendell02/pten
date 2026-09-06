@@ -8,15 +8,16 @@ Many codes are from “corpwechatbot"
 
 """
 
-from . import logger
-from .keys import Keys
-from .wwapi import BotApi, BOT_API_TYPE, CorpApi, CORP_API_TYPE
 import base64
+import time
 from hashlib import md5
 from pathlib import Path
 from queue import Queue
-import time
 from typing import Optional
+
+from . import logger
+from .keys import Keys
+from .wwapi import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
 
 
 def reply_text(decrypt_data, content):

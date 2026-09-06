@@ -1,6 +1,8 @@
-from .conftest import assert_ww_response
 from pathlib import Path
-from pten.wwmessager import BotMsgSender, AppMsgSender
+
+from pten.wwmessager import AppMsgSender, BotMsgSender
+
+from .conftest import assert_ww_response
 
 
 def test_bot_msg_sender(mocker):

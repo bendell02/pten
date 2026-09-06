@@ -1,6 +1,5 @@
-from .conftest import assert_fs_response, create_fs_mock_response, use_real_keys
+from .conftest import assert_fs_response, create_fs_mock_response
 import json
-import os
 
 import pytest
 from unittest.mock import MagicMock
@@ -158,17 +157,3 @@ def test_tenant_api_error_response(mocker, fs_keys):
         api.refresh_access_token()
     assert exc_info.value.errCode == 10003
     assert exc_info.value.errMsg == "app not found"
-
-
-def test_tenant_access_token_real_key():
-    if not use_real_keys:
-        pytest.skip("use_real_keys is False")
-
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    api = CorpApi(key_filepath)
-    token = api.get_access_token()
-    # 飞书的 tenant_access_token 以 t- 开头
-    assert token and token.startswith("t-")

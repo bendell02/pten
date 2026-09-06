@@ -1,9 +1,7 @@
-from .conftest import assert_fs_response, create_fs_mock_response, use_real_keys
+from .conftest import assert_fs_response, create_fs_mock_response
 import json
-import os
 from pten.fs_messager import BotMsgSender, AppMsgSender
 from pten.keys import Keys
-import pytest
 
 
 def test_bot_msg_sender(mocker):
@@ -26,25 +24,6 @@ def test_send_card(mocker):
     response = bot.send_card(
         title="飞书卡片",
         content="**hello** world\n\n[https://www.baidu.com](https://www.baidu.com)",
-    )
-    print(response)
-    assert_fs_response(response)
-
-
-def test_send_card_real():
-    if not use_real_keys:
-        pytest.skip("use_real_keys is False")
-
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    bot = BotMsgSender(key_filepath)
-
-    response = bot.send_card(
-        title="飞书卡片",
-        content="**hello** world for pytest\n\n[https://www.baidu.com](https://www.baidu.com)",
-        template="red",
     )
     print(response)
     assert_fs_response(response)
@@ -167,17 +146,3 @@ def test_app_msg_sender_empty_content(mocker, fs_keys):
 
     assert response == {"code": -1, "msg": app.errmsgs["text_error"]}
     assert mock_post.call_count == 0
-
-
-def test_app_msg_sender_real_key():
-    if not use_real_keys:
-        pytest.skip("use_real_keys is False")
-
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    app = AppMsgSender(key_filepath)
-    response = app.send_text("hello world from app")
-    print(response)
-    assert_fs_response(response)

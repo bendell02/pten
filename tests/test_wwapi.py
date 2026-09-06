@@ -1,6 +1,4 @@
-from .conftest import use_real_keys
 from pten.wwapi import CorpApi, CORP_API_TYPE, BotApi, BOT_API_TYPE
-import pytest
 from unittest.mock import MagicMock
 
 
@@ -43,19 +41,6 @@ def test_bot_api(mocker):
     mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
 
     api = BotApi("pten_keys_example.ini")
-    response = api.http_call(
-        BOT_API_TYPE["WEBHOOK_SEND"],
-        {"msgtype": "text", "text": {"content": "hello from bot"}},
-    )
-    assert response["errcode"] == 0
-    assert response["errmsg"] == "ok"
-
-
-def test_bot_api_real_key():
-    if not use_real_keys:
-        pytest.skip("use_real_keys is False")
-
-    api = BotApi()
     response = api.http_call(
         BOT_API_TYPE["WEBHOOK_SEND"],
         {"msgtype": "text", "text": {"content": "hello from bot"}},

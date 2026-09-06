@@ -50,13 +50,25 @@ class FsBotApi(FsAbstractApi):
 
 
 CORP_API_TYPE = {
-    # 自建应用凭证：请求体携带 app_id/app_secret，无需鉴权
-    # https://open.feishu.cn/document/server-docs/authentication-management/access-token/tenant_access_token_internal
     "GET_TENANT_ACCESS_TOKEN": ["auth/v3/tenant_access_token/internal", "POST"],
-    # 发消息给用户/群聊；receive_id_type 是查询参数，取值 open_id/user_id/
-    # union_id/email/chat_id，由 AppMsgSender 在发送前替换 URL 中的占位符
-    # https://open.feishu.cn/document/server-docs/im-v1/message/create
     "MESSAGE_SEND": ["im/v1/messages?receive_id_type=RECEIVE_ID_TYPE", "POST"],
+    # —— 多维表格（Base）写操作 ——
+    "BITABLE_APP_CREATE": ["bitable/v1/apps", "POST"],
+    "BITABLE_TABLE_LIST": ["bitable/v1/apps/APP_TOKEN/tables", "GET"],
+    "BITABLE_TABLE_DELETE": ["bitable/v1/apps/APP_TOKEN/tables/TABLE_ID", "DELETE"],
+    "BITABLE_TABLE_CREATE": ["bitable/v1/apps/APP_TOKEN/tables", "POST"],
+    "BITABLE_RECORD_CREATE": [
+        "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records",
+        "POST",
+    ],
+    "BITABLE_RECORD_UPDATE": [
+        "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records/RECORD_ID",
+        "PUT",
+    ],
+    "BITABLE_RECORD_DELETE": [
+        "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records/RECORD_ID",
+        "DELETE",
+    ],
 }
 
 
@@ -94,7 +106,7 @@ class FsCorpApi(FsAbstractApi):
         try:
             return self.keys.get_access_token(self._token_key)
         except Exception as e:
-            logger.warning(f"{str(e)} refreshing access token...")
+            logger.warning(f"{e!s} refreshing access token...")
             return self.refresh_access_token()
 
     def refresh_access_token(self):

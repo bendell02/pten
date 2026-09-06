@@ -97,6 +97,13 @@ class AbstractApi(object):
             elif "POST_FILE" == method:
                 url = self._make_url(shortUrl)
                 response = self._post_file(url, args)
+            elif "DELETE" == method:
+                url = self._make_url(shortUrl)
+                url = self._append_args(url, args)
+                response = self._http_delete(url)
+            elif "PUT" == method:
+                url = self._make_url(shortUrl)
+                response = self._http_put(url, args)
             else:
                 raise ApiException(-1, "unknown method type")
 
@@ -118,9 +125,9 @@ class AbstractApi(object):
 
         for key, value in args.items():
             if "?" in url:
-                url += "&" + key + "=" + value
+                url += "&" + key + "=" + str(value)
             else:
-                url += "?" + key + "=" + value
+                url += "?" + key + "=" + str(value)
         return url
 
     @classmethod
@@ -175,6 +182,33 @@ class AbstractApi(object):
 
         return requests.get(
             realUrl, headers=self._get_headers(realUrl), proxies=self.proxies
+        ).json()
+
+    def _http_delete(self, url):
+        realUrl = self._append_token(url)
+
+        if self.DEBUG_MODE is True:
+            realUrl = self._debug_url(realUrl)
+            logger.debug(realUrl)
+
+        return requests.delete(
+            realUrl, headers=self._get_headers(realUrl), proxies=self.proxies
+        ).json()
+
+    def _http_put(self, url, args):
+        realUrl = self._append_token(url)
+
+        if self.DEBUG_MODE is True:
+            realUrl = self._debug_url(realUrl)
+            query_string = urlencode(args)
+            full_url = f"{realUrl}?{query_string}"
+            logger.debug(full_url)
+
+        return requests.put(
+            realUrl,
+            data=json.dumps(args, ensure_ascii=False).encode("utf-8"),
+            headers=self._get_headers(realUrl),
+            proxies=self.proxies,
         ).json()
 
     def _post_file(self, url, args):

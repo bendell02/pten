@@ -7,7 +7,7 @@ This module implements the WeWork API. It is from https://github.com/sbzhu/wewor
 """
 
 from . import base_api, logger
-from .base_api import ApiException, make_token_key
+from .base_api import make_token_key
 from .keys import Keys
 
 

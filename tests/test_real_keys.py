@@ -10,9 +10,8 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from lunardate import LunarDate
 
 from pten import logger
-from pten.fs_api import CorpApi
-from pten.fs_messager import AppMsgSender
-from pten.fs_messager import BotMsgSender as FsBotMsgSender
+from pten.fs_api import FsCorpApi
+from pten.fs_messager import FsAppMsgSender, FsBotMsgSender
 from pten.keys import Keys
 from pten.notice import LLM, Birthday, Weather
 from pten.wwapi import BOT_API_TYPE, BotApi
@@ -165,7 +164,7 @@ def test_fs_tenant_access_token():
     if not os.path.exists(key_filepath):
         pytest.skip(f"Key file not found: {key_filepath}")
 
-    api = CorpApi(key_filepath)
+    api = FsCorpApi(key_filepath)
     token = api.get_access_token()
     # 飞书的 tenant_access_token 以 t- 开头
     assert token and token.startswith("t-")
@@ -201,7 +200,7 @@ def test_fs_app_msg_sender():
     if not os.path.exists(key_filepath):
         pytest.skip(f"Key file not found: {key_filepath}")
 
-    app = AppMsgSender(key_filepath)
+    app = FsAppMsgSender(key_filepath)
     response = app.send_text("hello world from app")
     print(response)
     assert_fs_response(response)

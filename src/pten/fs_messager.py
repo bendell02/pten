@@ -12,11 +12,11 @@ from queue import Queue
 from typing import Optional
 
 from . import logger
-from .fs_api import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
+from .fs_api import BOT_API_TYPE, CORP_API_TYPE, FsBotApi, FsCorpApi
 from .keys import Keys
 
 
-class MsgSender:
+class FsMsgSender:
     """
     The parent class of all the notify classes
     """
@@ -148,14 +148,14 @@ class MsgSender:
         }
 
 
-class BotMsgSender(MsgSender):
+class FsBotMsgSender(FsMsgSender):
     """
     飞书机器人，支持文本、卡片类型数据的发送
     """
 
     def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
         super().__init__(keys_filepath, keys=keys, **kwargs)
-        self.api = BotApi(keys_filepath, keys=keys)
+        self.api = FsBotApi(keys_filepath, keys=keys)
         self.queue = Queue(20)  # 机器人消息频率限制为每分钟不超过20条消息
 
     def _send(
@@ -216,15 +216,15 @@ class BotMsgSender(MsgSender):
         return self._send(msg_type="interactive", data={"card": card})
 
 
-class AppMsgSender(MsgSender):
+class FsAppMsgSender(FsMsgSender):
     """
     飞书自建应用消息推送器：把消息发给指定用户或群聊，
-    鉴权由 CorpApi 的 tenant_access_token 完成
+    鉴权由 FsCorpApi 的 tenant_access_token 完成
     """
 
     def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
         super().__init__(keys_filepath, keys=keys, **kwargs)
-        self.api = CorpApi(keys_filepath, keys=keys)
+        self.api = FsCorpApi(keys_filepath, keys=keys)
         # [fs] 可选配置默认接收者：未显式传 receive_id 的发送会发给它
         self.default_receive_id = self.keys.get_fs_receive_id()
         self.default_receive_id_type = self.keys.get_fs_receive_id_type()

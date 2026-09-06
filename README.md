@@ -50,10 +50,10 @@ response = bot.send_image(image_path)
 
 ### 2.3 飞书机器人
 ```python
-from pten.fs_messager import BotMsgSender
+from pten.fs_messager import FsBotMsgSender
 
-bot = BotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
-# bot = BotMsgSender("another_pten_keys.ini")
+bot = FsBotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
+# bot = FsBotMsgSender("another_pten_keys.ini")
 
 # 发送文本消息
 response = bot.send_text("hello world")
@@ -398,9 +398,9 @@ app_jsapi_ticket = api.get_app_jsapi_ticket()
 飞书自定义机器人(webhook)消息发送模块，结构与 `wwmessager` 类似，但目前仅支持 webhook 方式，可发送文本消息和卡片消息。响应成功判定为 `code == 0`、`msg == "success"`。
 
 ```python
-from pten.fs_messager import BotMsgSender
+from pten.fs_messager import FsBotMsgSender
 
-bot = BotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
+bot = FsBotMsgSender()  # 默认使用 pten_keys.ini，读取 [fs] 的 webhook_key
 
 # 发送文本消息
 response = bot.send_text("hello world")
@@ -412,9 +412,9 @@ response = bot.send_card(title="构建通知", content="**build #123** 成功", 
 如需直接调用飞书底层接口，可使用 `fs_api` 模块，用法与 `wwapi` 一致：
 
 ```python
-from pten.fs_api import BotApi, BOT_API_TYPE
+from pten.fs_api import FsBotApi, BOT_API_TYPE
 
-api = BotApi("pten_keys.ini")
+api = FsBotApi("pten_keys.ini")
 response = api.http_call(
     BOT_API_TYPE["WEBHOOK_SEND"],
     {"msg_type": "text", "content": {"text": "hello from feishu bot"}},

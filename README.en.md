@@ -51,10 +51,10 @@ response = bot.send_image(image_path)
 
 ### 2.3 Feishu Bot
 ```python
-from pten.fs_messager import BotMsgSender
+from pten.fs_messager import FsBotMsgSender
 
-bot = BotMsgSender()  # Defaults to pten_keys.ini, reads the [fs] webhook_key
-# bot = BotMsgSender("another_pten_keys.ini")
+bot = FsBotMsgSender()  # Defaults to pten_keys.ini, reads the [fs] webhook_key
+# bot = FsBotMsgSender("another_pten_keys.ini")
 
 # Send a text message
 response = bot.send_text("hello world")
@@ -398,9 +398,9 @@ app_jsapi_ticket = api.get_app_jsapi_ticket()
 A messaging module for Feishu custom bots (webhook). It mirrors the structure of `wwmessager`, but currently supports only the webhook approach and can send text messages and card messages. A successful response is indicated by `code == 0` and `msg == "success"`.
 
 ```python
-from pten.fs_messager import BotMsgSender
+from pten.fs_messager import FsBotMsgSender
 
-bot = BotMsgSender()  # Defaults to pten_keys.ini, reads the webhook_key under [fs]
+bot = FsBotMsgSender()  # Defaults to pten_keys.ini, reads the webhook_key under [fs]
 
 # Send a text message
 response = bot.send_text("hello world")
@@ -412,9 +412,9 @@ response = bot.send_card(title="Build Notice", content="**build #123** passed", 
 To call the low-level Feishu endpoints directly, use the `fs_api` module, the same way as `wwapi`:
 
 ```python
-from pten.fs_api import BotApi, BOT_API_TYPE
+from pten.fs_api import FsBotApi, BOT_API_TYPE
 
-api = BotApi("pten_keys.ini")
+api = FsBotApi("pten_keys.ini")
 response = api.http_call(
     BOT_API_TYPE["WEBHOOK_SEND"],
     {"msg_type": "text", "content": {"text": "hello from feishu bot"}},

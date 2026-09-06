@@ -7,15 +7,15 @@ This module implements the Feishu API.
 """
 
 from . import base_api, logger
-from .base_api import ApiException, make_token_key
+from .base_api import make_token_key
 from .keys import Keys
 
 
-class AbstractApi(base_api.AbstractApi):
+class FsAbstractApi(base_api.AbstractApi):
     """飞书 API 基类，为共享的 HTTP 管道提供厂商配置。
 
     webhook 类接口无需鉴权（``TOKEN_EXPIRED_CODES`` 为空，token 刷新为no-op）；
-    需要鉴权的接口由 :class:`CorpApi` 通过 tenant_access_token 接入。
+    需要鉴权的接口由 :class:`FsCorpApi` 通过 tenant_access_token 接入。
     """
 
     BASE_URL = "https://open.feishu.cn/open-apis"
@@ -35,7 +35,7 @@ BOT_API_TYPE = {
 }
 
 
-class BotApi(AbstractApi):
+class FsBotApi(FsAbstractApi):
     def __init__(
         self, keys_filepath="pten_keys.ini", webhook_key=None, keys: Keys = None
     ):
@@ -60,7 +60,7 @@ CORP_API_TYPE = {
 }
 
 
-class CorpApi(AbstractApi):
+class FsCorpApi(FsAbstractApi):
     """飞书自建应用 API：管理 tenant_access_token 的获取与刷新。
 
     飞书的 token 通过``Authorization: Bearer <tenant_access_token>`` 请求头携带（见

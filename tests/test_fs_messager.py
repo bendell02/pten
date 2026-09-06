@@ -1,6 +1,6 @@
 import json
 
-from pten.fs_messager import AppMsgSender, BotMsgSender
+from pten.fs_messager import FsAppMsgSender, FsBotMsgSender
 from pten.keys import Keys
 
 from .conftest import assert_fs_response, create_fs_mock_response
@@ -10,7 +10,7 @@ def test_bot_msg_sender(mocker):
     mock_post = mocker.patch("requests.post")
     mock_post.return_value.json.return_value = {"code": 0, "msg": "success"}
 
-    bot = BotMsgSender("pten_keys_example.ini")
+    bot = FsBotMsgSender("pten_keys_example.ini")
 
     response = bot.send_text(content="hello world")
     print(response)
@@ -21,7 +21,7 @@ def test_send_card(mocker):
     mock_post = mocker.patch("requests.post")
     mock_post.return_value.json.return_value = {"code": 0, "msg": "success"}
 
-    bot = BotMsgSender("pten_keys_example.ini")
+    bot = FsBotMsgSender("pten_keys_example.ini")
 
     response = bot.send_card(
         title="飞书卡片",
@@ -35,7 +35,7 @@ def test_app_msg_sender(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
 
-    app = AppMsgSender(keys=fs_keys)
+    app = FsAppMsgSender(keys=fs_keys)
     response = app.send_text("hello world from app", receive_id="ou_test")
 
     assert_fs_response(response)
@@ -50,7 +50,7 @@ def test_app_msg_sender(mocker, fs_keys):
         "msg_type": "text",
         "content": '{"text": "hello world from app"}',
     }
-    # 鉴权头由 CorpApi 自动携带
+    # 鉴权头由 FsCorpApi 自动携带
     assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
 
 
@@ -58,7 +58,7 @@ def test_app_msg_sender_receive_id_type(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
 
-    app = AppMsgSender(keys=fs_keys)
+    app = FsAppMsgSender(keys=fs_keys)
     response = app.send_text(
         "hello group", receive_id="oc_test", receive_id_type="chat_id"
     )
@@ -74,7 +74,7 @@ def test_app_msg_send_card(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
 
-    app = AppMsgSender(keys=fs_keys)
+    app = FsAppMsgSender(keys=fs_keys)
     response = app.send_card(
         title="飞书卡片", content="**hello** world", receive_id="ou_test"
     )
@@ -92,7 +92,7 @@ def test_app_msg_sender_default_receive_id(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
 
-    app = AppMsgSender(keys=fs_keys)
+    app = FsAppMsgSender(keys=fs_keys)
     # 未显式传 receive_id 时回退 [fs] 配置的默认接收者
     response = app.send_text("hello default receiver")
 
@@ -118,7 +118,7 @@ def test_app_msg_sender_default_receive_id_type(mocker, tmp_path):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
 
-    app = AppMsgSender(keys=keys)
+    app = FsAppMsgSender(keys=keys)
     response = app.send_text("hello group")
 
     assert_fs_response(response)
@@ -132,7 +132,7 @@ def test_app_msg_sender_default_receive_id_type(mocker, tmp_path):
 def test_app_msg_sender_no_receive_id(mocker, fs_keys_no_receiver):
     mock_post = mocker.patch("requests.post")
 
-    app = AppMsgSender(keys=fs_keys_no_receiver)
+    app = FsAppMsgSender(keys=fs_keys_no_receiver)
     response = app.send_text("hello world")
 
     # 既没有传参也没有配置默认接收者：不发请求，直接返回错误
@@ -143,7 +143,7 @@ def test_app_msg_sender_no_receive_id(mocker, fs_keys_no_receiver):
 def test_app_msg_sender_empty_content(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
 
-    app = AppMsgSender(keys=fs_keys)
+    app = FsAppMsgSender(keys=fs_keys)
     response = app.send_text("", receive_id="ou_test")
 
     assert response == {"code": -1, "msg": app.errmsgs["text_error"]}

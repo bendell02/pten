@@ -4,10 +4,46 @@ pten.fs_bitable
 
 飞书多维表格（Base）的高层封装：创建多维表格 / 新增数据表 / 新增记录 / 删除记录。
 鉴权由 FsCorpApi 的 tenant_access_token 经 Authorization 请求头完成。
+字段类型枚举 :class:`FsFieldType` 映射服务端的 type 数字，供数据表 fields 的 type 使用。
 """
+
+from enum import IntEnum
 
 from .fs_api import CORP_API_TYPE, FsCorpApi
 from .keys import Keys
+
+
+class FsFieldType(IntEnum):
+    """飞书多维表格字段类型，映射服务端 ``type`` 数字。
+
+    IntEnum 与裸数字等价（``FsFieldType.TEXT == 1``）：放进 fields 的 type
+    经 JSON 序列化后仍是数字，也兼容直接传裸数字的旧写法。
+    https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-field/guide
+    """
+
+    TEXT = 1  # 多行文本（ui_type 另可 Barcode 条码 / Email 邮箱）
+    NUMBER = 2  # 数字（ui_type 另可 Progress 进度 / Currency 货币 / Rating 评分）
+    SINGLE_SELECT = 3  # 单选
+    MULTI_SELECT = 4  # 多选
+    DATETIME = 5  # 日期
+    CHECKBOX = 7  # 复选框
+    USER = 11  # 人员
+    PHONE = 13  # 电话号码
+    URL = 15  # 超链接
+    ATTACHMENT = 17  # 附件
+    SINGLE_LINK = 18  # 单向关联
+    LOOKUP = 19  # 查找引用
+    FORMULA = 20  # 公式
+    DUPLEX_LINK = 21  # 双向关联
+    LOCATION = 22  # 地理位置
+    GROUP_CHAT = 23  # 群组
+    WORKFLOW = 24  # 流程（只读，写接口不支持新增或编辑）
+    CREATED_TIME = 1001  # 创建时间（系统字段）
+    MODIFIED_TIME = 1002  # 最后更新时间（系统字段）
+    CREATED_USER = 1003  # 创建人（系统字段）
+    MODIFIED_USER = 1004  # 修改人（系统字段）
+    AUTO_NUMBER = 1005  # 自动编号（系统字段）
+    BUTTON = 3001  # 按钮（只读，写接口不支持新增或编辑）
 
 
 class FsBitable:
@@ -55,7 +91,9 @@ class FsBitable:
         :param app_token: 目标多维表格 app_token
         :param name: 数据表名称（1~100 字符；不可含 / \\ ? * : [ ] ）
         :param fields: 初始字段列表，每项 {field_name, type, ui_type?, property?}；
-            首字段须为索引字段（type 仅支持 1文本/2数字/5日期/13电话/15超链接/20公式/22地理位置）；
+            type 传 FsFieldType 枚举或裸数字均可（两者等价）；
+            首字段须为索引字段（仅支持 FsFieldType 的
+            TEXT/NUMBER/DATETIME/PHONE/URL/FORMULA/LOCATION）；
             缺省则创建仅含索引字段的空表
         :param default_view_name: 默认视图名；传入时 fields 必须同时传入
         :return: data 含 table_id（以及 default_view_id / field_id_list）

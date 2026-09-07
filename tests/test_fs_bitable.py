@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock
 
-from pten.fs_bitable import FsBitable
+from pten.fs_bitable import FsBitable, FsFieldType
 
 from .conftest import assert_fs_response, create_fs_mock_response
 
@@ -49,6 +49,45 @@ def test_create_table(mocker, fs_keys):
         "table": {
             "name": "数据表",
             "fields": [{"field_name": "索引", "type": 1}],
+        }
+    }
+
+
+def test_create_table_with_field_type_enum(mocker, fs_keys):
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = create_fs_mock_response(
+        {"code": 0, "msg": "success", "data": {"table_id": "tblXXX"}}
+    )
+
+    bitable = FsBitable(keys=fs_keys)
+    response = bitable.create_table(
+        app_token="appXXX",
+        name="数据表",
+        fields=[
+            {"field_name": "姓名", "type": FsFieldType.TEXT},
+            {
+                "field_name": "生日",
+                "type": FsFieldType.DATETIME,
+                "property": {"date_formatter": "yyyy/MM/dd"},
+            },
+        ],
+    )
+
+    assert_fs_response(response)
+    # IntEnum 经 json 序列化后仍是数字，与裸数字写法完全等价
+    assert FsFieldType.TEXT == 1
+    body = json.loads(mock_post.call_args.kwargs["data"])
+    assert body == {
+        "table": {
+            "name": "数据表",
+            "fields": [
+                {"field_name": "姓名", "type": 1},
+                {
+                    "field_name": "生日",
+                    "type": 5,
+                    "property": {"date_formatter": "yyyy/MM/dd"},
+                },
+            ],
         }
     }
 

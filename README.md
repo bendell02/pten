@@ -420,3 +420,12 @@ response = api.http_call(
     {"msg_type": "text", "content": {"text": "hello from feishu bot"}},
 )
 ```
+
+## 5. 教程文档
+
+更完整的场景化教程见 `docs/` 目录：
+
+- [用 pten 给 LLM 上闹钟：固定 5 小时计时起点](docs/01_用pten给LLM上闹钟：固定%205%20小时计时起点.md)
+- [pten 设置日志路径](docs/02_pten设置日志路径.md)
+- [pten 一份配置文件支持多 LLM provider](docs/03_pten一份配置文件支持多%20LLM%20provider.md)
+- [用 pten 以应用身份给飞书发消息：FsAppMsgSender 上手指南](docs/04_用pten以应用身份给飞书发消息：FsAppMsgSender%20上手指南.md)

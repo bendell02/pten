@@ -2,7 +2,7 @@
 pten.fs_bitable
 ~~~~~~~~~~~~~~~
 
-飞书多维表格（Base）的高层封装：创建多维表格 / 新增数据表 / 新增记录 / 删除记录。
+飞书多维表格（Base）的高层封装：多维表格 / 数据表 / 记录的增删改查。
 鉴权由 FsCorpApi 的 tenant_access_token 经 Authorization 请求头完成。
 字段类型枚举 :class:`FsFieldType` 映射服务端的 type 数字，供数据表 fields 的 type 使用。
 """

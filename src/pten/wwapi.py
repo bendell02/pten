@@ -42,9 +42,7 @@ BOT_API_TYPE = {
 
 
 class BotApi(AbstractApi):
-    def __init__(
-        self, keys_filepath="pten_keys.ini", webhook_key=None, keys: Keys = None
-    ):
+    def __init__(self, keys_filepath=None, webhook_key=None, keys: Keys = None):
         super().__init__(keys_filepath, keys=keys)
         if webhook_key is not None:
             self.webhook_key = webhook_key
@@ -368,11 +366,7 @@ CORP_API_TYPE = {
 
 class CorpApi(AbstractApi):
     def __init__(
-        self,
-        keys_filepath="pten_keys.ini",
-        corpid=None,
-        corpsecret=None,
-        keys: Keys = None,
+        self, keys_filepath=None, corpid=None, corpsecret=None, keys: Keys = None
     ):
         super().__init__(keys_filepath, keys=keys)
         self.corpid = corpid if corpid else self.keys.get_key("ww", "corpid")
@@ -473,7 +467,7 @@ class ServiceCorpApi(CorpApi):
         suite_id,
         suite_secret,
         suite_ticket,
-        keys_filepath="pten_keys.ini",
+        keys_filepath=None,
         keys: Keys = None,
         auth_corpid=None,
         permanent_code=None,
@@ -544,9 +538,7 @@ SERVICE_PROVIDER_API_TYPE = {
 
 
 class ServiceProviderApi(AbstractApi):
-    def __init__(
-        self, corpid, provider_secret, keys_filepath="pten_keys.ini", keys: Keys = None
-    ):
+    def __init__(self, corpid, provider_secret, keys_filepath=None, keys: Keys = None):
         super().__init__(keys_filepath, keys=keys)
         self.corpid = corpid
         self.provider_secret = provider_secret

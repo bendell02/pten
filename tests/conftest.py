@@ -15,10 +15,9 @@ enable_long_time_tests = False  # True False. Set to True to run long time tests
 
 @pytest.fixture()
 def key_filepath_example():
-    if use_real_keys:
-        return "pten_keys.ini"
-    else:
-        return "pten_keys_example.ini"
+    # mock 测试统一用 example 假配置，不随 use_real_keys 切换；
+    # live 测试（test_real_keys.py）直读真实的 pten_keys.ini
+    return "pten_keys_example.ini"
 
 
 @pytest.fixture()

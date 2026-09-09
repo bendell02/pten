@@ -18,11 +18,7 @@ def encode_url(url):
 
 class Contact:
     def __init__(
-        self,
-        keys_filepath="pten_keys.ini",
-        contact_sync_secret=None,
-        keys: Keys = None,
-        **kwargs,
+        self, keys_filepath=None, contact_sync_secret=None, keys: Keys = None, **kwargs
     ):
         self.keys = keys if keys else Keys(keys_filepath)
         if contact_sync_secret is None:

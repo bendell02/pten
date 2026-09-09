@@ -36,9 +36,7 @@ BOT_API_TYPE = {
 
 
 class FsBotApi(FsAbstractApi):
-    def __init__(
-        self, keys_filepath="pten_keys.ini", webhook_key=None, keys: Keys = None
-    ):
+    def __init__(self, keys_filepath=None, webhook_key=None, keys: Keys = None):
         super().__init__(keys_filepath, keys=keys)
         if webhook_key is not None:
             self.webhook_key = webhook_key
@@ -88,11 +86,7 @@ class FsCorpApi(FsAbstractApi):
     TOKEN_EXPIRED_CODES = (99991661, 99991663)
 
     def __init__(
-        self,
-        keys_filepath="pten_keys.ini",
-        app_id=None,
-        app_secret=None,
-        keys: Keys = None,
+        self, keys_filepath=None, app_id=None, app_secret=None, keys: Keys = None
     ):
         super().__init__(keys_filepath, keys=keys)
         self.app_id = app_id if app_id else self.keys.get_key("fs", "app_id")

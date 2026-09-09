@@ -18,7 +18,7 @@ class Doc:
     代开发自建应用: 第三方服务商为企业配置代开发应用时，需要开启「文档接口权限」，企业管理员确认之后，应用即拥有文档权限
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         self.keys = keys if keys else Keys(keys_filepath)
         self.api = CorpApi(keys_filepath, keys=keys)
 

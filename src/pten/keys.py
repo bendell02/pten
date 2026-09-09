@@ -8,6 +8,7 @@ This module implements the keys class for getting keys from local file.
 
 import configparser
 import json
+import os
 from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
@@ -18,16 +19,28 @@ from . import DEFAULT_LOG_PATH, logger, setup_logging
 class Keys:
     """Keys class for getting keys from local file
 
-    :param keys_filepath: The path of the keys file. Default is "pten_keys.ini"
+    :param keys_filepath: keys 文件路径，缺省 None 时按以下顺序查找：
+
+        1. 显式传入的路径（文件缺失时直接报错，不回退）
+        2. 环境变量 ``PTEN_KEYS_FILE``（文件缺失时直接报错，不回退）
+        3. 当前目录 ``./pten_keys.ini``
+        4. 用户主目录 ``~/.pten/pten_keys.ini``
+
+    token 缓存文件（pten_token.json）与最终解析出的 keys 文件同目录，
+    避免全局配置（如 ~/.pten）时 token 散落在各个运行目录。
     """
 
     # 命名 LLM provider 段前缀，如 [llm:openai]
     LLM_SECTION_PREFIX = "llm:"
 
-    def __init__(self, keys_filepath="pten_keys.ini", *args, **kwargs):
+    # keys 文件的缺省文件名与查找链使用的环境变量名
+    DEFAULT_KEYS_FILENAME = "pten_keys.ini"
+    KEYS_FILE_ENV_VAR = "PTEN_KEYS_FILE"
+
+    def __init__(self, keys_filepath=None, *args, **kwargs):
         self.key_cfg = ConfigParser()
-        self.keys_filepath = Path(keys_filepath)
-        self.TOKEN_PATH = Path("pten_token.json")
+        self.keys_filepath = Keys._resolve_keys_filepath(keys_filepath)
+        self.TOKEN_PATH = self.keys_filepath.parent / "pten_token.json"
         self.bot_weebhook_key = None
         self.access_tokens = {}
         self.corp_jsapi_ticket = None
@@ -42,6 +55,42 @@ class Keys:
 
         if not self.keys_filepath.is_file():
             logger.error(f"Can not find file {self.keys_filepath}")
+
+    @classmethod
+    def _resolve_keys_filepath(cls, keys_filepath):
+        """按优先级解析 keys 文件路径，返回实际使用的 Path。
+
+        优先级从高到低：
+        1. 显式传入的 keys_filepath（严格：文件缺失时直接报错，不回退）
+        2. 环境变量 ``PTEN_KEYS_FILE``（严格：文件缺失时直接报错，不回退）
+        3. 当前目录 ``./pten_keys.ini``（探测：不存在则继续找）
+        4. 用户主目录 ``~/.pten/pten_keys.ini``（探测）
+
+        后两级均未命中时回落到 ``./pten_keys.ini``，保持旧行为
+        （初始化仅告警，取 key 时才抛 FileNotFoundError）。
+
+        显式路径与环境变量里的 ``~`` 会展开为用户主目录。
+        """
+        if keys_filepath is not None:
+            return Path(keys_filepath).expanduser()
+
+        env_value = os.environ.get(cls.KEYS_FILE_ENV_VAR)
+        if env_value:
+            return Path(env_value).expanduser()
+
+        candidates = [Path(cls.DEFAULT_KEYS_FILENAME)]
+        try:
+            candidates.append(Path.home() / ".pten" / cls.DEFAULT_KEYS_FILENAME)
+        except RuntimeError:
+            pass
+
+        for candidate in candidates:
+            if candidate.is_file():
+                return candidate
+
+        msg = "Can not find keys file, tried: " + ", ".join(str(c) for c in candidates)
+        logger.warning(msg)
+        return candidates[0]
 
     def _read_keys_file(self, cfg: ConfigParser, path):
         """读取 ini 文件：优先按 UTF-8 解析，失败时回退系统本地编码。
@@ -177,7 +226,11 @@ class Keys:
             token_dict = json.loads(file_path.read_text())
 
         token_dict.update({key: info})
-        file_path.write_text(json.dumps(token_dict))
+        try:
+            file_path.write_text(json.dumps(token_dict))
+        except OSError as e:
+            # keys 文件所在目录不可写等场景：内存缓存已生效，仅持久化失败
+            logger.warning(f"Can not save token cache to {file_path}: {e}")
 
     def get_access_token(self, token_key):
         now = datetime.now().timestamp()

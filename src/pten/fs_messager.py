@@ -21,7 +21,7 @@ class FsMsgSender:
     The parent class of all the notify classes
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         self.keys = keys if keys else Keys(keys_filepath)
         self.errmsgs = {
             "image_error": "图片文件不合法",
@@ -153,7 +153,7 @@ class FsBotMsgSender(FsMsgSender):
     飞书机器人，支持文本、卡片类型数据的发送
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         super().__init__(keys_filepath, keys=keys, **kwargs)
         self.api = FsBotApi(keys_filepath, keys=keys)
         self.queue = Queue(20)  # 机器人消息频率限制为每分钟不超过20条消息
@@ -222,7 +222,7 @@ class FsAppMsgSender(FsMsgSender):
     鉴权由 FsCorpApi 的 tenant_access_token 完成
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         super().__init__(keys_filepath, keys=keys, **kwargs)
         self.api = FsCorpApi(keys_filepath, keys=keys)
         # [fs] 可选配置默认接收者：未显式传 receive_id 的发送会发给它

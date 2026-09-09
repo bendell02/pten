@@ -90,7 +90,7 @@ class MsgSender:
     The parent class of all the notify classes
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         self.keys = keys if keys else Keys(keys_filepath)
         self.errmsgs = {
             "image_error": "图片文件不合法",
@@ -208,7 +208,7 @@ class BotMsgSender(MsgSender):
     企业微信机器人，支持文本、markdown、图片、图文、文件、语音类型数据的发送
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         super().__init__(keys_filepath, keys=keys, **kwargs)
         self.api = BotApi(keys_filepath, keys=keys)
         self.queue = Queue(20)  # 机器人消息频率限制为每分钟不超过20条消息
@@ -382,7 +382,7 @@ class AppMsgSender(MsgSender):
     应用消息推送器，支持文本、图片、语音、视频、文件、文本卡片、图文、markdown消息推送
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         """
         :param corpid: 企业id
         :param corpsecret: 应用密钥

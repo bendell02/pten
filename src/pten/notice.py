@@ -171,7 +171,7 @@ class LLM(Notice):
     :param api_key: 服务对应的 api key
     :param model: 模型名称，如 deepseek-v4-flash、gpt-4o-mini
     :param system_prompt: 系统提示词，默认 "You are a helpful assistant"
-    :param keys_filepath: 当参数未直接传入时，从此文件读取配置
+    :param keys_filepath: 当参数未直接传入时，从此文件读取配置，缺省路径解析见 :class:`pten.keys.Keys`
     """
 
     # LLM 默认系统提示词
@@ -184,7 +184,7 @@ class LLM(Notice):
         api_key=None,
         model=None,
         system_prompt=DEFAULT_SYSTEM_PROMPT,
-        keys_filepath="pten_keys.ini",
+        keys_filepath=None,
     ):
         super().__init__()
         self.keys = Keys(keys_filepath)
@@ -259,7 +259,7 @@ class Deepseek(LLM):
     已由更通用的 LLM 类替代，保留以兼容旧代码；建议直接使用 LLM。
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", **kwargs):
+    def __init__(self, keys_filepath=None, **kwargs):
         sk_api_key = Keys(keys_filepath).get_key("notice", "deepseek_api_key")
         super().__init__(
             base_url="https://api.deepseek.com",
@@ -271,7 +271,7 @@ class Deepseek(LLM):
 
 
 class Weather(Notice):
-    def __init__(self, keys_filepath="pten_keys.ini", **kwargs):
+    def __init__(self, keys_filepath=None, **kwargs):
         super().__init__()
         self.keys = Keys(keys_filepath)
         self.api_key = self.keys.get_key("notice", "seniverse_api_key")

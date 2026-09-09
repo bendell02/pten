@@ -17,7 +17,7 @@ Or install from source.
 ## 2. Basic Usage -- Example of Sending Messages via Bot
 
 ### 2.1 Configuring the Configuration File
-The default path for the configuration file is `pten_keys.ini`, but you can specify a different path using the `keys_filepath` parameter.
+The configuration file is resolved by priority: an explicit `keys_filepath` argument → the `PTEN_KEYS_FILE` environment variable → `pten_keys.ini` in the current directory → `~/.pten/pten_keys.ini` in the user home directory (a missing explicit path or env-var path is an error, with no fallback). The token cache (`pten_token.json`) is stored next to the resolved configuration file.
 For the complete content of the configuration file, refer to [Configuration File](#configuration-file). Not all fields need to be set; configure them as needed.  
 For example, if you only use the WeChat Work bot, you only need to configure the `webhook_key` field under the `ww` section; if you only use the Feishu bot, you only need to configure the `webhook_key` field under the `fs` section.
 ```ini

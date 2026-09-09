@@ -16,7 +16,7 @@ pip install pten
 ## 2. 基础使用 -- 以使用机器人发送消息为例
 
 ### 2.1 设置配置文件
-配置文件默认路径为 `pten_keys.ini`，也可以通过 `keys_filepath` 参数指定配置文件路径。
+配置文件按优先级顺序查找：`keys_filepath` 参数显式指定的路径 → 环境变量 `PTEN_KEYS_FILE` → 当前目录的 `pten_keys.ini` → 用户主目录 `~/.pten/pten_keys.ini`（显式路径和环境变量指向的文件不存在时会直接报错，不做回退）。token 缓存 `pten_token.json` 与最终解析出的配置文件同目录。
 配置文件完整内容请参考[配置文件](#3. 配置文件)，并非所有字段都需要设置，根据自己需要配置即可。  
 比如如果只用企业微信机器人，只需配置 `ww`的`webhook_key`字段即可；只用飞书机器人，只需配置 `fs`的`webhook_key`字段即可。
 ```ini

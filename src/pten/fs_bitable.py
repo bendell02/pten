@@ -49,11 +49,11 @@ class FsFieldType(IntEnum):
 class FsBitable:
     """飞书多维表格客户端，封装常用写操作。
 
-    :param keys_filepath: 配置文件路径，缺省 pten_keys.ini
+    :param keys_filepath: 配置文件路径，缺省按 Keys 的查找链解析（见 :class:`pten.keys.Keys`）
     :param keys: 共享 Keys 实例，可跨模块注入以复用 token 缓存
     """
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None, **kwargs):
+    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
         self.keys = keys if keys else Keys(keys_filepath)
         self.api = FsCorpApi(keys_filepath, keys=keys)
 

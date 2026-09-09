@@ -2,7 +2,6 @@
 
 import configparser
 import datetime
-import os
 import threading
 import time
 
@@ -21,6 +20,20 @@ from pten.wwcrypt import WXBizMsgCrypt
 from pten.wwmessager import BotMsgSender
 
 from .conftest import assert_fs_response, enable_long_time_tests, use_real_keys
+
+
+def _real_client_or_skip(factory, *args, **kwargs):
+    """构造对象；配置缺失（文件找不到/缺段缺键）时跳过，其它异常照常抛出。
+
+    Keys 查找链中没有任何文件、或文件里缺对应段/键时，构造会抛
+    FileNotFoundError / configparser.Error——这是“环境未配置”，应 skip；
+    LLM 类把配置不全（缺 base_url/api_key/model）转成 ValueError，故一并捕获；
+    其它异常（代码回归、网络、鉴权失败等）应照常抛出，不被吞掉。
+    """
+    try:
+        return factory(*args, **kwargs)
+    except (FileNotFoundError, configparser.Error, ValueError) as e:
+        pytest.skip(f"Keys config unavailable: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -44,14 +57,13 @@ def test_ww_bot_api():
 # ---------------------------------------------------------------------------
 @pytest.fixture()
 def wwcpt():
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    keys = Keys(key_filepath)
-    CORP_ID = keys.get_key("ww", "corpid")
-    API_TOKEN = keys.get_key("ww", "app_token")
-    API_AES_KEY = keys.get_key("ww", "app_aes_key")
+    try:
+        keys = Keys()
+        CORP_ID = keys.get_key("ww", "corpid")
+        API_TOKEN = keys.get_key("ww", "app_token")
+        API_AES_KEY = keys.get_key("ww", "app_aes_key")
+    except (FileNotFoundError, configparser.Error) as e:
+        pytest.skip(f"Keys config unavailable: {e}")
 
     wwcpt = WXBizMsgCrypt(API_TOKEN, API_AES_KEY, CORP_ID)
     return wwcpt
@@ -93,11 +105,7 @@ def test_llm_real():
     if not use_real_keys:
         pytest.skip("use_real_keys is False")
 
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    llm = LLM(keys_filepath=key_filepath)
+    llm = _real_client_or_skip(LLM)
     content = llm.get_completion("你好")
     print(content)
     assert content != ""
@@ -162,11 +170,7 @@ def test_fs_tenant_access_token():
     if not use_real_keys:
         pytest.skip("use_real_keys is False")
 
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    api = FsCorpApi(key_filepath)
+    api = _real_client_or_skip(FsCorpApi)
     token = api.get_access_token()
     # 飞书的 tenant_access_token 以 t- 开头
     assert token and token.startswith("t-")
@@ -179,11 +183,7 @@ def test_fs_bot_send_card():
     if not use_real_keys:
         pytest.skip("use_real_keys is False")
 
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    bot = FsBotMsgSender(key_filepath)
+    bot = _real_client_or_skip(FsBotMsgSender)
 
     response = bot.send_card(
         title="飞书卡片",
@@ -198,11 +198,7 @@ def test_fs_app_msg_sender():
     if not use_real_keys:
         pytest.skip("use_real_keys is False")
 
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-
-    app = FsAppMsgSender(key_filepath)
+    app = _real_client_or_skip(FsAppMsgSender)
     response = app.send_text("hello world from app")
     print(response)
     assert_fs_response(response)
@@ -213,11 +209,8 @@ def test_fs_app_msg_sender():
 # ---------------------------------------------------------------------------
 @pytest.fixture()
 def fs_bitable_real():
-    """构造真实凭证的 FsBitable；未开启真实 key 或缺配置文件时整体跳过。"""
-    key_filepath = "pten_keys.ini"
-    if not os.path.exists(key_filepath):
-        pytest.skip(f"Key file not found: {key_filepath}")
-    return FsBitable(key_filepath)
+    """构造真实凭证的 FsBitable；配置缺失时跳过，其它异常照常抛出。"""
+    return _real_client_or_skip(FsBitable)
 
 
 def _bitable_ids(bitable, *options):

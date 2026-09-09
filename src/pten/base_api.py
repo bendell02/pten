@@ -54,7 +54,7 @@ class AbstractApi(object):
     TOKEN_PLACEHOLDERS = ()  # (占位符, getter 方法名) 组成的元组
     TOKEN_EXPIRED_CODES = ()  # 表示“token 过期，需刷新后重试”的 errcode 集合
 
-    def __init__(self, keys_filepath="pten_keys.ini", keys: Keys = None):
+    def __init__(self, keys_filepath=None, keys: Keys = None):
         self.keys = keys if keys else Keys(keys_filepath)
         self.DEBUG_MODE = self.keys.get_debug_mode()
         self.proxies = self.keys.get_proxies()

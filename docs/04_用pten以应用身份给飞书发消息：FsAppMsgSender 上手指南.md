@@ -53,7 +53,7 @@ receive_id=ou_84a7b7e2d5219af3c6b0e4d8a2f1c5d6
 
 `app_id`/`app_secret` 是必填的；`receive_id`/`receive_id_type` 是可选的"默认接收者"——配置之后，调用发消息方法时可以不传接收者，消息会发给它。适合"我就是想给固定的某个人/某个群发通知"这类最常见的场景。
 
-> 提示：`pten_keys.ini`、token 缓存 `pten_token.json` 都是相对**当前工作目录**解析的，建议在固定目录（如仓库根目录）下运行你的脚本。
+> 提示：`pten_keys.ini` 缺省按 传入路径 → 环境变量 `PTEN_KEYS_FILE` → 当前目录 → `~/.pten/` 的顺序查找，当前目录没有时可用 `~/.pten/pten_keys.ini` 做全局配置；token 缓存 `pten_token.json` 与最终解析出的配置文件同目录。
 
 ## 4. 三行代码发消息
 

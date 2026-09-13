@@ -1,7 +1,7 @@
 """飞书自建应用发消息示例（FsAppMsgSender，tenant_access_token 鉴权）。
 
-运行前提：[fs] 配置 app_id、app_secret；
-        或者把 RECEIVE_ID 换成你的接收者（两者至少其一，见下面两种用法）。
+运行前提：[fs] 配置 app_id、app_secret（取 tenant_access_token 必需）；
+        接收者把 RECEIVE_ID 换成你的 ID，或在 [fs] 配置默认 receive_id。
 运行方式：python examples/fs/send_app_msg.py
 """
 
@@ -26,8 +26,12 @@ if __name__ == "__main__":
     response = app.send_text("发给默认接收者")
     print(response)
 
-    # 卡片消息同理
+    # 卡片消息同理：同样可显式指定 receive_id，或省略回退 [fs] 默认接收者
     response = app.send_card(
-        title="构建通知", content="**build #123** 成功", template="green"
+        title="构建通知",
+        content="**build #123** 成功",
+        template="green",
+        receive_id=RECEIVE_ID,
+        receive_id_type="open_id",
     )
     print(response)

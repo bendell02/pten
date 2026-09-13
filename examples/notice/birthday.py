@@ -23,9 +23,9 @@ if __name__ == "__main__":
 
     # 农历生日提醒（自动处理闰月），缺省在当天 08:03 提醒（hour/minute 参数可改）
     birthday.add_lunar_schedule(3, 15, who="玛丽")
-    # 可用 greeting_words 定制提醒语
+    # 可用 greeting_words 定制提醒语；同一日期只注册一次，避免重复提醒
     birthday.add_lunar_schedule(
-        3, 15, who="玛丽", greeting_words="玛丽来到地球纪念日，生快！"
+        8, 1, who="玛丽", greeting_words="玛丽来到地球纪念日，生快！"
     )
     # 阳历生日提醒
     birthday.add_solar_schedule(1, 12, who="玛莉亚")

@@ -40,7 +40,7 @@ bot.send_text("hello world")
 | 1 | 显式传入 `keys_filepath` | 直接报错，不回退 |
 | 2 | 环境变量 `PTEN_KEYS_FILE` | 直接报错，不回退 |
 | 3 | 当前目录 `./pten_keys.ini` | 继续探测下一级 |
-| 4 | 主目录 `~/.pten/pten_keys.ini` | 回落到 `./pten_keys.ini`（旧行为） |
+| 4 | 主目录 `~/.pten/pten_keys.ini` | 查找链结束：`Keys` 持有 `./pten_keys.ini` 并告警，取 key 时抛错（旧行为） |
 
 - token 缓存自动落在配置文件同目录：用 `~/.pten/pten_keys.ini` 时，`pten_token.json` 也写到 `~/.pten/`，不再污染各个运行目录
 
@@ -61,7 +61,7 @@ from pten.keys import Keys
 keys = Keys()  # 命中环境变量指向的文件
 ```
 - 环境变量里的 `~` 会展开为用户主目录：`PTEN_KEYS_FILE=~/.pten/pten_keys.ini`
-- 环境变量指向的文件不存在时**严格报错**（取 key 时抛 `FileNotFoundError`），不偷偷回退到当前目录——避免「以为用了线上配置，其实用了本地配置」
+- 环境变量指向的文件不存在时**严格报错**（取 key 时抛 `FileNotFoundError`），不偷偷回退到当前目录——避免「以为用了线上配置，其实用了本地配置」；文件存在但缺对应节/键（如没有 `[fs]` 节）时则抛 `configparser.Error("KeyConfigError")`
 
 ### 4.2 显式传入路径
 
@@ -102,8 +102,8 @@ llm = LLM(keys=keys)
 
 ## 5. 注意事项与说明
 
-- **显式路径/环境变量文件不存在为什么直接报错？** 前两级是「严格」匹配——你明确指定了它，就该用它；偷偷回退到别的配置反而危险（可能用错 corpid 发错消息）。报错形式是取 key 时抛 `FileNotFoundError`。
-- **当前目录和主目录都没有会怎样？** 回落到 `./pten_keys.ini` 并告警，保持 v0.4.11 之前的之前的旧行为（初始化仅告警，真正取 key 时才抛 `FileNotFoundError`），旧代码不受影响。
+- **显式路径/环境变量文件不存在为什么直接报错？** 前两级是「严格」匹配——你明确指定了它，就该用它；偷偷回退到别的配置反而危险（可能用错 corpid 发错消息）。报错形式分两种：文件本身不存在时，取 key 抛 `FileNotFoundError`；文件存在但缺对应节/键（如没有 `[fs]` 节）时，抛 `configparser.Error("KeyConfigError")`。
+- **当前目录和主目录都没有会怎样？** 回落到 `./pten_keys.ini` 并告警，保持 v0.4.11 之前的旧行为（初始化仅告警，真正取 key 时才抛 `FileNotFoundError`），旧代码不受影响。
 - **`PTEN_KEYS_FILE` 设成空字符串算不算指定？** 不算——空串视为未设置，继续探测当前目录。
 - **容器里没有主目录会报错吗？** 不会。`Path.home()` 在无 passwd 条目的容器 UID 下会抛 `RuntimeError`，查找链捕获后跳过主目录这一级，只要当前目录有配置就正常命中。
 - **旧代码传 `BotMsgSender("pten_keys.ini")` 还能用吗？** 能。显式传 `"pten_keys.ini"` 等价于优先级第 1 级，行为与旧版一致，无需改动。

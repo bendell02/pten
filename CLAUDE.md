@@ -1,65 +1,68 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件为 Claude Code（claude.ai/code）在本仓库中处理代码时提供指引。
 
-## Project
+## 项目
 
-`pten` is a Python library (src-layout, `src/pten/`) for calling WeChat Work (企业微信) APIs — bot/app messaging, contacts, documents, callback crypto — plus a small set of "notice" helpers (birthday reminders, weather, DeepSeek). A Feishu (飞书) bot path (`fs_api`/`fs_messager`) is being added on the `add_feishu` branch.
+`pten` 是一个调用飞书 API 和企业微信 API 的 Python 库（src-layout，`src/pten/`），覆盖机器人/应用消息、通讯录、文档、回调加解密，外加一小组「notice」提醒助手（生日提醒、天气、LLM 对话）。
 
-## Commands
+## 常用命令
 
 ```bash
-# Install editable (pulls deps: apscheduler, lunardate, openai, pycryptodome)
+# 可编辑安装（拉取依赖：apscheduler、lunardate、openai、pycryptodome）
 pip install -e .
-# Test deps
+# 测试依赖
 pip install "pytest>=3" "pytest-mock>=3"
 
-# Run all tests from the repo root (conftest.py adds src/ to sys.path, so no install needed)
+# 从仓库根目录跑全部测试（conftest.py 会把 src/ 加入 sys.path，无需安装）
 pytest
 
-# Run a single test / file / by keyword
+# 跑单个测试 / 文件 / 按关键字筛选
 pytest tests/test_keys.py
 pytest tests/test_wwmessager.py::test_app_msg_sender
 pytest tests/test_wwapi.py -k jsapi
 ```
 
-Tests run from the repo root by default. `Keys` resolves its config file through a lookup chain (explicit `keys_filepath` → `PTEN_KEYS_FILE` env var → `./pten_keys.ini` → `~/.pten/pten_keys.ini`; the first two are strict, the last two probed), the token cache (`pten_token.json`) sits next to the resolved keys file, and the log file (`pten.log`) is resolved relative to the CWD.
+测试默认从仓库根目录运行。`Keys` 按查找链解析配置文件（显式 `keys_filepath` → `PTEN_KEYS_FILE` 环境变量 → `./pten_keys.ini` → `~/.pten/pten_keys.ini`；前两级严格，后两级探测），token 缓存（`pten_token.json`）落在解析出的配置文件同目录，日志文件（`pten.log`）相对 CWD 解析。
 
-### Real-API tests
+### 真实 API 测试
 
-Most tests mock `requests.get`/`requests.post` via `pytest-mock`'s `mocker` fixture and use `pten_keys_example.ini`. A few (`test_*_real_key`, the birthday scheduler test, `wwcrypt`'s `VerifyURL`/`DecryptMsg`) hit live APIs and are gated behind flags in `tests/conftest.py`:
+大多数测试通过 `pytest-mock` 的 `mocker` fixture mock 掉 `requests.get`/`requests.post`，并使用 `pten_keys_example.ini`。少数测试（`test_*_real_key`、生日调度器测试、`wwcrypt` 的 `VerifyURL`/`DecryptMsg`）会打真实 API，由 `tests/conftest.py` 里的开关控制：
 
-- `use_real_keys = True` — unskips the live tests in `test_real_keys.py` (they read the real `pten_keys.ini` directly; mocked tests always use `pten_keys_example.ini`, regardless of the flag).
-- `enable_long_time_tests = True` — unskips the long-running `BlockingScheduler` birthday test.
+- `use_real_keys = True` —— 放开 `test_real_keys.py` 里的真实 API 测试（它们直接读真实的 `pten_keys.ini`；mock 测试无论开关如何都始终用 `pten_keys_example.ini`）。
+- `enable_long_time_tests = True` —— 放开长耗时的 `BlockingScheduler` 生日测试。
 
-## Architecture
+## 架构
 
-### Config & state — `keys.py`
-`Keys` is the single config dependency every other module takes. It resolves the keys file through a lookup chain — explicit `keys_filepath` (strict: no fallback when missing) → `PTEN_KEYS_FILE` env var (strict) → `./pten_keys.ini` → `~/.pten/pten_keys.ini` (both probed; when neither exists it falls back to `./pten_keys.ini`, keeping the old init-warn/get-raises behavior) — and reads it (`configparser`, sections `ww` / `fs` / `globals` / `proxies` / `notice`, plus optional named `[llm:<name>]` provider sections enumerated by `Keys.list_llm_providers()`; files are read as UTF-8 first, falling back to the locale encoding for legacy GBK files — `Keys._read_keys_file`) and owns token/ticket caching: access tokens and corp/app jsapi tickets are persisted to `pten_token.json` (same directory as the resolved keys file, so a `~/.pten` config keeps its tokens out of the CWD) keyed by `ww_`/`fs_` + `sha1(credentials)` (corpid+corpsecret for WW, app_id+app_secret for Feishu), with a 7200s expiry; the in-memory access-token cache is keyed the same way, so WW and Feishu tokens can share one `Keys` instance. Optional `[fs]` keys `receive_id`/`receive_id_type` (`Keys.get_fs_receive_id*`) supply `fs_messager.AppMsgSender`'s default recipient. Public classes accept `keys_filepath=None` (triggering the lookup chain) plus an optional `keys: Keys` so a shared `Keys` instance (and its token cache) can be injected across modules.
+本节的人类可读图文详版见 `docs/architecture.md`；架构有变化时两边需同步更新。
 
-### Shared plumbing — `base_api.py`
-`base_api.AbstractApi` owns the HTTP machinery used by both WeChat Work and Feishu: `http_call` dispatch (POST/GET/POST_FILE/DELETE/PUT — DELETE routes its query params through `_append_args` like GET; PUT carries its body in `args` like POST), URL building (`_make_url`, `_append_args`), token substitution (`_append_token`), vendor request headers (`_get_headers(url)` hook — default empty, overridden by the Feishu module to add `Content-Type`/`Authorization`; `_post_file` strips `Content-Type` so requests can generate the multipart boundary), response checking (`_check_response` → raises `ApiException` unless the success code is `0`), and token-expiry retry (up to 3 times). A module-level `make_token_key(prefix, *credentials)` helper builds the `ww_`/`fs_` token-cache keys both vendors persist. Each vendor module subclasses it and sets class attributes: `BASE_URL`; `RESPONSE_CODE_FIELD`/`RESPONSE_MSG_FIELD` (`errcode`/`errmsg` for WW, `code`/`msg` for Feishu); `TOKEN_PLACEHOLDERS` — ordered `(placeholder, getter_name)` tuples where longer/specific placeholders must come first (e.g. `SUITE_ACCESS_TOKEN` before `ACCESS_TOKEN`, since the former contains the latter; `_append_token`/`_refresh_token` use the first match); and `TOKEN_EXPIRED_CODES` (empty for the Feishu webhook base, so refresh is a no-op there). A `_debug_url` hook lets WW append `&debug=1` in debug mode.
+### 配置与状态 —— `keys.py`
+`Keys` 是其余所有模块唯一的配置依赖。它按查找链解析配置文件 —— 显式 `keys_filepath`（严格：文件缺失不回退）→ `PTEN_KEYS_FILE` 环境变量（严格）→ `./pten_keys.ini` → `~/.pten/pten_keys.ini`（后两级探测；两者都不存在时回落 `./pten_keys.ini`，保留旧的「初始化告警、get 时抛错」行为）—— 然后读取（`configparser`，节为 `ww` / `fs` / `globals` / `proxies` / `notice`，外加可选的 `[llm:<name>]` provider 节，由 `Keys.list_llm_providers()` 枚举；文件先按 UTF-8 读，失败回落本机编码以兼容老的 GBK 文件 —— `Keys._read_keys_file`），并持有 token/ticket 缓存：access token 和 corp/app jsapi ticket 持久化到 `pten_token.json`（与解析出的配置文件同目录，因此 `~/.pten` 配置的 token 不会散落到 CWD），键为 `ww_`/`fs_` + `sha1(凭证)`（WW 是 corpid+corpsecret，飞书是 app_id+app_secret），7200 秒过期；内存 access-token 缓存按同样方式键控，因此 WW 和飞书的 token 可共享一个 `Keys` 实例。`[fs]` 里可选的 `receive_id`/`receive_id_type`（`Keys.get_fs_receive_id*`）提供 `fs_messager.FsAppMsgSender` 的默认收件人。公开类接受 `keys_filepath=None`（触发查找链）加可选的 `keys: Keys`，以便跨模块注入共享的 `Keys` 实例（及其 token 缓存）。
 
-### API layer — `wwapi.py` (WeChat Work)
-`AbstractApi` is a config subclass of `base_api.AbstractApi`: `BASE_URL=https://qyapi.weixin.qq.com`, `errcode`/`errmsg` response fields, all four token placeholders, and `TOKEN_EXPIRED_CODES=(40014,42001,42007,42009)`. Endpoint definitions live in module-level dicts (`BOT_API_TYPE`, `CORP_API_TYPE`, `SERVICE_CORP_API_TYPE`, `SERVICE_PROVIDER_API_TYPE`) mapping a logical name → `[shortUrl, method]`. URLs carry placeholders (`ACCESS_TOKEN`, `WEBHOOK_KEY`, `SUITE_ACCESS_TOKEN`, `PROVIDER_ACCESS_TOKEN`) that `_append_token` substitutes lazily by calling the subclass's `get_*` method; `_refresh_token` calls the matching `refresh_*` on token-expired errcodes and retries up to 3 times. `_check_response` raises `ApiException(errcode, errmsg)` unless `errcode == 0`. Subclasses: `BotApi` (webhook only), `CorpApi` (access_token + jsapi tickets), `ServiceCorpApi`, `ServiceProviderApi`.
+### 共享底座 —— `base_api.py`
+`base_api.AbstractApi` 持有企业微信与飞书共用的 HTTP 管道：`http_call` 分发（POST/GET/POST_FILE/DELETE/PUT —— DELETE 像 GET 一样把查询参数经 `_append_args` 拼进 URL；PUT 像 POST 一样把请求体放在 `args` 里）、URL 构造（`_make_url`、`_append_args`）、token 替换（`_append_token`）、厂商请求头（`_get_headers(url)` 钩子 —— 默认为空，飞书模块重写它以添加 `Content-Type`/`Authorization`；`_post_file` 会摘掉 `Content-Type`，让 requests 自行生成 multipart boundary）、响应检查（`_check_response` → 成功码不为 `0` 时抛 `ApiException`）以及 token 过期重试（最多 3 次）。模块级的 `make_token_key(prefix, *credentials)` 帮助函数构造两家厂商持久化的 `ww_`/`fs_` token 缓存键。各厂商模块继承它并设置类属性：`BASE_URL`；`RESPONSE_CODE_FIELD`/`RESPONSE_MSG_FIELD`（WW 是 `errcode`/`errmsg`，飞书是 `code`/`msg`）；`TOKEN_PLACEHOLDERS` —— 有序的 `(占位符, getter 名)` 元组，更长/更具体的占位符必须排前面（如 `SUITE_ACCESS_TOKEN` 在 `ACCESS_TOKEN` 之前，因为前者包含后者；`_append_token`/`_refresh_token` 取第一个匹配）；以及 `TOKEN_EXPIRED_CODES`（飞书 webhook 基类为空，刷新在那里是 no-op）。`_debug_url` 钩子让 WW 在 debug 模式追加 `&debug=1`。
 
-### Feishu layer — `fs_api.py` / `fs_messager.py`
-`FsAbstractApi` is a config subclass of `base_api.AbstractApi`: `BASE_URL=https://open.feishu.cn/open-apis`, `code`/`msg` response fields, webhook-only (`WEBHOOK_KEY` placeholder), `TOKEN_EXPIRED_CODES=()` (webhooks need no auth), and a `_get_headers` override adding the JSON `Content-Type` Feishu requires. `FsCorpApi` covers self-built apps: it fetches `tenant_access_token` from `auth/v3/tenant_access_token/internal` using `app_id`/`app_secret` from `[fs]` (or explicit params), caches it via `Keys` under an `fs_<sha1(app_id+app_secret)>` token key, and — unlike WeChat Work's URL placeholders — carries it as an `Authorization: Bearer` header via `_get_headers` (skipping the header on the token endpoint itself, which also breaks the refresh-on-expired recursion). On Feishu's token-expired codes (`99991661`/`99991663`) it refreshes and retries by overriding `_refresh_token`, since the URL never contains a token placeholder. Endpoints with non-token query params carry a placeholder the sender substitutes before the call (e.g. `MESSAGE_SEND` has `receive_id_type=RECEIVE_ID_TYPE`, replaced by `FsAppMsgSender._send`). Because the HTTP plumbing is shared via `base_api`, extending Feishu support now mirrors WeChat Work automatically — add endpoint entries to `fs_api.BOT_API_TYPE` (webhook) or `CORP_API_TYPE` (tenant-token) and thin methods on the sender; response success is `code == 0`. The `BITABLE_*` entries in `CORP_API_TYPE` (create/list/delete app/table/record, update record) back `fs_bitable.FsBitable`, which substitutes path placeholders `APP_TOKEN`/`TABLE_ID`/`RECORD_ID` per call (like `MESSAGE_SEND`'s `RECEIVE_ID_TYPE`); the delete endpoints use the `DELETE` dispatch and update-record uses the `PUT` dispatch in `base_api`.
+### 企业微信 API 层 —— `wwapi.py`
+`AbstractApi` 是 `base_api.AbstractApi` 的配置子类：`BASE_URL=https://qyapi.weixin.qq.com`、响应字段 `errcode`/`errmsg`、全部四个 token 占位符、`TOKEN_EXPIRED_CODES=(40014,42001,42007,42009)`。端点定义放在模块级字典（`BOT_API_TYPE`、`CORP_API_TYPE`、`SERVICE_CORP_API_TYPE`、`SERVICE_PROVIDER_API_TYPE`）里，逻辑名 → `[shortUrl, method]`。URL 带占位符（`ACCESS_TOKEN`、`WEBHOOK_KEY`、`SUITE_ACCESS_TOKEN`、`PROVIDER_ACCESS_TOKEN`），`_append_token` 调用子类的 `get_*` 方法惰性替换；token 过期 errcode 时 `_refresh_token` 调对应的 `refresh_*` 并最多重试 3 次。`errcode == 0` 之外 `_check_response` 抛 `ApiException(errcode, errmsg)`。子类：`BotApi`（仅 webhook）、`CorpApi`（access_token + jsapi ticket）、`ServiceCorpApi`、`ServiceProviderApi`。
 
-### High-level modules
-- `wwmessager.py` — `MsgSender` base; `BotMsgSender` (webhook, self-throttles to 20 msg/min via a `Queue`) and `AppMsgSender` (access_token, routes to `message/send` or `appchat/send`, resolves `touser`/`toparty`/`totag` defaulting to `@all`). Media uploads go through `_get_media_id`.
-- `fs_messager.py` — `FsMsgSender` base, Feishu side: `FsBotMsgSender` (webhook, text/cards) and `FsAppMsgSender` (self-built app via `FsCorpApi`; every send takes `receive_id` + `receive_id_type` — open_id/user_id/union_id/email/chat_id — targeting `im/v1/messages`, with `content` JSON-serialized per the im API; an omitted `receive_id` falls back to the default recipient configured in `[fs]` (`receive_id` + optional `receive_id_type`, read once at construction — the config type only applies when the config receive_id is used), and neither present returns an error dict without a request).
-- `fs_bitable.py` — `FsBitable` wraps `FsCorpApi` for 多维表格 (Base) ops: `create_app` / `create_table` / `list_tables` / `create_record` / `update_record` / `delete_record` / `delete_table`, substituting path placeholders `APP_TOKEN`/`TABLE_ID`/`RECORD_ID` per call; delete-record/delete-table ride the `DELETE` dispatch and update-record rides the `PUT` dispatch in `base_api`.
-- `wwcontact.py` — `Contact` wraps `CorpApi` using `contact_sync_secret` (from `[ww]`, or passed in) instead of `app_secret`.
-- `wwdoc.py` — `Doc` wraps `CorpApi` for wedoc / smartsheet / form endpoints.
-- `wwcrypt.py` — `WXBizMsgCrypt` (VerifyURL / DecryptMsg / EncryptMsg) for callback message crypto. Vendored from `weworkapi_python`.
-- `notice.py` — `Notice` base (default `report_func=print`); `Birthday` (lunar via `lunardate` + solar, schedules via `apscheduler` and auto-reschedules the next year, handles leap months); `LLM` (general OpenAI-compatible chat client taking `base_url`/`api_key`/`model`; with `provider="openai"` it reads a `[llm:openai]` section (`base_url`/`api_key`/`model`), otherwise falls back to `[notice]` `llm_*`; explicit params always override config; supersedes `Deepseek`); `Deepseek` (DeepSeek-only preset, OpenAI client pointed at the DeepSeek base_url - superseded by `LLM`); `Weather` (seniverse API).
+### 飞书 API 层 —— `fs_api.py` / `fs_messager.py`
+`FsAbstractApi` 是 `base_api.AbstractApi` 的配置子类：`BASE_URL=https://open.feishu.cn/open-apis`、响应字段 `code`/`msg`、仅 webhook（`WEBHOOK_KEY` 占位符）、`TOKEN_EXPIRED_CODES=()`（webhook 无需鉴权），并重写 `_get_headers` 加上飞书要求的 JSON `Content-Type`。`FsCorpApi` 负责自建应用：用 `[fs]` 里的 `app_id`/`app_secret`（或显式参数）从 `auth/v3/tenant_access_token/internal` 取 `tenant_access_token`，经 `Keys` 以 `fs_<sha1(app_id+app_secret)>` 为 token 键缓存；与企业微信的 URL 占位符不同，token 通过 `_get_headers` 以 `Authorization: Bearer` 请求头携带（token 端点本身跳过该请求头，这也切断了过期刷新的递归）。飞书的过期码（`99991661`/`99991663`）通过重写 `_refresh_token` 刷新并重试，因为 URL 里从不出现 token 占位符。带非 token 查询参数的端点携带占位符，由 sender 在调用前替换（如 `MESSAGE_SEND` 的 `receive_id_type=RECEIVE_ID_TYPE`，由 `FsAppMsgSender._send` 替换）。由于 HTTP 管道经 `base_api` 共享，扩展飞书支持现在与企业微信自动对齐 —— 往 `fs_api.BOT_API_TYPE`（webhook）或 `CORP_API_TYPE`（tenant token）加端点条目，再在 sender 上加薄方法；响应成功即 `code == 0`。`CORP_API_TYPE` 里的 `BITABLE_*` 条目（应用/数据表/记录的创建/列表/删除，记录更新）支撑 `fs_bitable.FsBitable`，它按调用替换路径占位符 `APP_TOKEN`/`TABLE_ID`/`RECORD_ID`（类似 `MESSAGE_SEND` 的 `RECEIVE_ID_TYPE`）；删除端点走 `base_api` 的 `DELETE` 分发，更新记录走 `PUT` 分发。
 
-### Logging
-Importing `pten` (i.e. `from . import logger` in each module) runs `src/pten/__init__.py`, which configures a named `logger` with a colored console handler and a 30MB-rotating `pten.log` file handler. Use this `logger`, not `print`, inside the package.
+### 高层模块
+- `wwmessager.py` —— `MsgSender` 基类；`BotMsgSender`（webhook，用 `Queue` 自限速每分钟 20 条）和 `AppMsgSender`（access_token，按有无 `chatid` 路由到 `appchat/send` 或 `message/send`，解析 `touser`/`toparty`/`totag`，缺省 `@all`）。媒体上传走 `_get_media_id`。
+- `fs_messager.py` —— `FsMsgSender` 基类，飞书侧：`FsBotMsgSender`（webhook，文本/卡片）和 `FsAppMsgSender`（经 `FsCorpApi` 的自建应用；每次发送带 `receive_id` + `receive_id_type` —— open_id/user_id/union_id/email/chat_id —— 打到 `im/v1/messages`，`content` 按 im API 做 JSON 序列化；省略 `receive_id` 时回落 `[fs]` 配置的默认收件人（`receive_id` + 可选 `receive_id_type`，构造时读一次 —— 配置的 receive_id_type 仅在收件人来自配置时生效），两者都缺时不起请求、直接返回错误 dict）。
+- `fs_bitable.py` —— `FsBitable` 封装 `FsCorpApi` 做多维表格 (Base) 操作：`create_app` / `create_table` / `list_tables` / `create_record` / `update_record` / `delete_record` / `delete_table`，按调用替换路径占位符 `APP_TOKEN`/`TABLE_ID`/`RECORD_ID`；删除记录/删除表走 `DELETE` 分发，更新记录走 `base_api` 的 `PUT` 分发。
+- `wwcontact.py` —— `Contact` 封装 `CorpApi`，用 `contact_sync_secret`（来自 `[ww]`，或显式传入）而非 `app_secret`。
+- `wwdoc.py` —— `Doc` 封装 `CorpApi`，覆盖 wedoc / smartsheet / form 端点。
+- `wwcrypt.py` —— `WXBizMsgCrypt`（VerifyURL / DecryptMsg / EncryptMsg）做回调消息加解密。Vendored 自 `weworkapi_python`。
+- `notice.py` —— `Notice` 基类（默认 `report_func=print`）；`Birthday`（`lunardate` 农历 + 阳历，`apscheduler` 调度并自动排下一年，处理闰月）；`LLM`（通用 OpenAI 兼容 chat 客户端，接受 `base_url`/`api_key`/`model`；`provider="openai"` 时读 `[llm:openai]` 节（`base_url`/`api_key`/`model`），否则回落 `[notice]` 的 `llm_*`；显式参数始终优先于配置；取代 `Deepseek`）；`Deepseek`（仅 DeepSeek 的预设，OpenAI 客户端指向 DeepSeek base_url —— 已被 `LLM` 取代）；`Weather`（心知天气 seniverse API）。
 
-## Conventions
+### 日志
+导入 `pten`（即各模块的 `from . import logger`）会执行 `src/pten/__init__.py`，配置一个具名 `logger`：彩色控制台 handler 加 30MB 滚动的 `pten.log` 文件 handler。包内代码用这个 `logger`，不用 `print`。
 
-- **New API endpoint?** Add an entry to the relevant `*_API_TYPE` dict in `wwapi.py` (or `fs_api.py`), then expose it as a thin method on the high-level class (`Contact`, `Doc`, sender, etc.) that builds the `data` dict and calls `self.api.http_call(...)`. Keep the data-shape and doc-link comment style of neighboring methods.
-- **Response assertions in tests:** WeChat Work → `assert_ww_response` (checks `errcode==0`, `errmsg=="ok"`); Feishu → `assert_fs_response` (checks `code==0`, `msg=="success"`). Both live in `tests/conftest.py`.
-- **`pten_keys.ini` and `pten_token.json` are gitignored** (real secrets / cached tokens). `pten_keys_example.ini` is the committed, fake-credentials fixture used by mocked tests.
+## 约定
+
+- **新增 API 端点？** 往 `wwapi.py`（或 `fs_api.py`）相应的 `*_API_TYPE` 字典加一条，再在高层类（`Contact`、`Doc`、sender 等）上暴露一个薄方法：构建 `data` 字典并调 `self.api.http_call(...)`。保持邻方法的数据形状与文档链接注释风格。
+- **接口变更时同步示例：** `examples/` 每个文件只演示一个模块的最常用用法，改公开接口后更新对应示例；示例不以 `test_` 开头（pytest 不收集）。
+- **测试中的响应断言：** 企业微信 → `assert_ww_response`（检查 `errcode==0`、`errmsg=="ok"`）；飞书 → `assert_fs_response`（检查 `code==0`、`msg=="success"`）。两者都在 `tests/conftest.py`。
+- **`pten_keys.ini` 与 `pten_token.json` 已 gitignore**（真实密钥/缓存 token）。`pten_keys_example.ini` 是提交进库的假凭证 fixture，mock 测试用它。

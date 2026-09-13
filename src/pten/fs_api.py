@@ -50,9 +50,10 @@ class FsBotApi(FsAbstractApi):
 CORP_API_TYPE = {
     "GET_TENANT_ACCESS_TOKEN": ["auth/v3/tenant_access_token/internal", "POST"],
     "MESSAGE_SEND": ["im/v1/messages?receive_id_type=RECEIVE_ID_TYPE", "POST"],
-    # —— 多维表格（Base）写操作 ——
+    # —— 多维表格（Base）读写操作 ——
     "BITABLE_APP_CREATE": ["bitable/v1/apps", "POST"],
     "BITABLE_TABLE_LIST": ["bitable/v1/apps/APP_TOKEN/tables", "GET"],
+    "BITABLE_FIELD_LIST": ["bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/fields", "GET"],
     "BITABLE_TABLE_DELETE": ["bitable/v1/apps/APP_TOKEN/tables/TABLE_ID", "DELETE"],
     "BITABLE_TABLE_CREATE": ["bitable/v1/apps/APP_TOKEN/tables", "POST"],
     "BITABLE_RECORD_CREATE": [

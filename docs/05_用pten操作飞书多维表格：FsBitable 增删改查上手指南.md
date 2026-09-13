@@ -230,7 +230,11 @@ app = FsAppMsgSender(keys=keys)  # 写完台账，顺手发条卡片通知
 
 - **权限没生效**：开了 `bitable:app` 但没发布应用版本，调用会被拒；
 - **操作已有表格报无权限**：应用不是该多维表格的所有者或协作者——把应用加为协作者，或用 `create_app` 以应用身份创建（见第 2 节第 5 步）；
-- **app_token / table_id / record_id 从哪来**：`app_token` 在 `create_app` 返回里，也可从多维表格 URL（形如 `https://xxx.feishu.cn/base/<app_token>`）取；`table_id` 从 `create_table` 返回或 `list_tables` 查；`record_id` 从 `create_record`/`update_record` 返回；
+- **app_token / table_id / record_id 从哪来**：`app_token` 在 `create_app` 返回里，也可从多维表格 URL（形如 `https://xxx.feishu.cn/base/<app_token>`）取；`table_id` 从 `create_table` 返回或 `list_tables` 查，也可从 URL 里 `table=` 参数取——比如下面这条，`PAcXbVV9pap9rhsNh4FcKFAfnqe` 是 app_token，`tbllnbDLnhoUDaIx` 就是 table_id：
+  ```
+  https://xxxx.feishu.cn/base/PAcXbVV9pap9rhsNh4FcKFAfnqe?table=tbllnbDLnhoUDaIx
+  ```
+  `record_id` 从 `create_record`/`update_record` 返回；
 - **删不掉数据表**：多维表格只剩最后一张数据表时，删除接口会拒绝——留张空表，或人工删掉整个多维表格；
 - **token 要自己管吗**：不用。`FsCorpApi` 自动取 `tenant_access_token`、以 `Authorization: Bearer` 请求头携带、持久化到 `pten_token.json`，命中过期码（`99991661`/`99991663`）时自动刷新并重试，最多 3 次；
 - **怎么判断成功**：`resp["code"] == 0`（`msg == "success"`）；失败时 dict 里带飞书的错误码和消息，照着处理即可；

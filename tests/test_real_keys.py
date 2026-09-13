@@ -291,6 +291,54 @@ def test_fs_bitable_list_tables(fs_bitable_real):
     print(f"[bitable] list_tables: {table_ids}")
 
 
+def test_fs_bitable_list_fields(fs_bitable_real):
+    """列出字段：对预置数据表调用 list_fields，应返回包含「名称」字段的字段清单。"""
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    bitable = fs_bitable_real
+
+    # 依赖已有的 app_token 与 table_id（同 list_tables，表内须含「名称」字段）
+    app_token, table_id = _bitable_ids(bitable, "app_token", "table_id")
+
+    resp = bitable.list_fields(app_token=app_token, table_id=table_id)
+    assert_fs_response(resp)
+    items = resp["data"].get("items", [])
+    assert items, "list_fields 返回的字段列表为空"
+    # 每项应含字段名 / 类型 / 字段 ID
+    for field in items:
+        assert "field_name" in field
+        assert "type" in field
+        assert "field_id" in field
+    field_names = [f["field_name"] for f in items]
+    # add_record / update_record 用例均向「名称」字段写值，此处校验该字段确实存在
+    assert "名称" in field_names
+    print(f"[bitable] list_fields: {field_names}")
+
+
+def test_fs_bitable_validate_record_fields(fs_bitable_real):
+    """字段预校验：对预置数据表，已知字段「名称」应通过；未知字段应抛 ValueError。"""
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    bitable = fs_bitable_real
+
+    app_token, table_id = _bitable_ids(bitable, "app_token", "table_id")
+
+    # 已知可写字段：校验通过，返回空列表（默认 raise_on_error=True 也不抛错）
+    issues = bitable.validate_record_fields(
+        app_token=app_token, table_id=table_id, fields={"名称": "x"}
+    )
+    assert issues == []
+
+    # 未知字段：校验不过，抛 ValueError
+    with pytest.raises(ValueError):
+        bitable.validate_record_fields(
+            app_token=app_token, table_id=table_id, fields={"不存在的字段": "x"}
+        )
+    print("[bitable] validate_record_fields: pass")
+
+
 def test_fs_bitable_delete_table(fs_bitable_real):
     """删除数据表：新建一张表后 delete_table 应成功。
 

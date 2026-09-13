@@ -18,6 +18,11 @@ class FsFieldType(IntEnum):
 
     IntEnum 与裸数字等价（``FsFieldType.TEXT == 1``）：放进 fields 的 type
     经 JSON 序列化后仍是数字，也兼容直接传裸数字的旧写法。
+
+    :ivar READONLY_TYPES: 只读字段类型集合（系统字段 / 公式 / 查找引用 / 按钮 / 流程），
+        写接口不支持新增或编辑这些字段的值；供 :meth:`FsBitable.validate_record_fields`
+        等做写前预检。
+
     https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-field/guide
     """
 
@@ -32,22 +37,41 @@ class FsFieldType(IntEnum):
     URL = 15  # 超链接
     ATTACHMENT = 17  # 附件
     SINGLE_LINK = 18  # 单向关联
-    LOOKUP = 19  # 查找引用
-    FORMULA = 20  # 公式
+    LOOKUP = 19  # 查找引用（只读，写接口不支持新增或编辑）
+    FORMULA = 20  # 公式（只读，写接口不支持新增或编辑）
     DUPLEX_LINK = 21  # 双向关联
     LOCATION = 22  # 地理位置
     GROUP_CHAT = 23  # 群组
     WORKFLOW = 24  # 流程（只读，写接口不支持新增或编辑）
-    CREATED_TIME = 1001  # 创建时间（系统字段）
-    MODIFIED_TIME = 1002  # 最后更新时间（系统字段）
-    CREATED_USER = 1003  # 创建人（系统字段）
-    MODIFIED_USER = 1004  # 修改人（系统字段）
-    AUTO_NUMBER = 1005  # 自动编号（系统字段）
+    CREATED_TIME = 1001  # 创建时间（系统字段，只读）
+    MODIFIED_TIME = 1002  # 最后更新时间（系统字段，只读）
+    CREATED_USER = 1003  # 创建人（系统字段，只读）
+    MODIFIED_USER = 1004  # 修改人（系统字段，只读）
+    AUTO_NUMBER = 1005  # 自动编号（系统字段，只读）
     BUTTON = 3001  # 按钮（只读，写接口不支持新增或编辑）
 
 
+# 只读字段类型：系统字段 / 公式 / 查找引用 / 按钮 / 流程
+# （写接口不支持新增或编辑，写入必被服务端拒绝；与各成员注释同源）
+# 作为类属性挂在 enum 上：不能放进类体——IntEnum 会把 frozenset 当作成员并尝试
+# int() 化其值，触发 TypeError；类外赋值则只是普通类属性，不参与成员解析
+FsFieldType.READONLY_TYPES = frozenset(
+    {
+        FsFieldType.LOOKUP,
+        FsFieldType.FORMULA,
+        FsFieldType.CREATED_TIME,
+        FsFieldType.MODIFIED_TIME,
+        FsFieldType.CREATED_USER,
+        FsFieldType.MODIFIED_USER,
+        FsFieldType.AUTO_NUMBER,
+        FsFieldType.BUTTON,
+        FsFieldType.WORKFLOW,
+    }
+)
+
+
 class FsBitable:
-    """飞书多维表格客户端，封装常用写操作。
+    """飞书多维表格客户端，封装常用读写操作及字段校验。
 
     :param keys_filepath: 配置文件路径，缺省按 Keys 的查找链解析（见 :class:`pten.keys.Keys`）
     :param keys: 共享 Keys 实例，可跨模块注入以复用 token 缓存
@@ -127,6 +151,107 @@ class FsBitable:
             args["page_token"] = page_token
         args.update(kwargs)
         return self.api.http_call([url, method], args)
+
+    def list_fields(
+        self,
+        app_token,
+        table_id,
+        page_size=None,
+        page_token=None,
+        view_id=None,
+        text_field_as_array=None,
+        **kwargs,
+    ):
+        """列出数据表中的字段（含字段名 / type / ui_type / property / is_primary 等）。
+
+        :param app_token: 多维表格 app_token
+        :param table_id: 数据表 table_id
+        :param page_size: 分页大小，默认 20，最大 100
+        :param page_token: 分页标记，第一次不填表示从头遍历；has_more=True 时返回新 page_token
+        :param view_id: 视图 ID，限定某视图下的字段；不传返回全部字段
+        :param text_field_as_array: True 时 description 以数组形式返回，缺省 False
+        :return: data 含 has_more / page_token / total / items（每项含 field_id / field_name /
+            type / ui_type / property / is_primary / is_hidden）
+        https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-field/list
+        """
+        shortUrl, method = CORP_API_TYPE["BITABLE_FIELD_LIST"]
+        url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+        args = {}
+        if page_size is not None:
+            args["page_size"] = str(page_size)
+        if page_token:
+            args["page_token"] = page_token
+        if view_id:
+            args["view_id"] = view_id
+        if text_field_as_array is not None:
+            # 布尔须转小写 true/false，否则服务端拿到 Python 的 True/False 不认
+            args["text_field_as_array"] = str(text_field_as_array).lower()
+        args.update(kwargs)
+        return self.api.http_call([url, method], args)
+
+    def validate_record_fields(
+        self,
+        app_token,
+        table_id,
+        fields,
+        view_id=None,
+        raise_on_error=True,
+    ):
+        """校验待写入记录的字段是否符合数据表定义（本地预检，不发写请求）。
+
+        自动翻页拉取数据表全部字段后逐项检查：
+          1) 未知字段——字段名不在数据表中；
+          2) 只读字段——字段为系统/公式/查找引用/按钮/流程等不可写类型。
+
+        :param app_token: 多维表格 app_token
+        :param table_id: 数据表 table_id
+        :param fields: 待校验的记录数据，键为字段名（形状同 create_record 的 fields）
+        :param view_id: 限定按某视图的字段集合校验，不传用全部字段
+        :param raise_on_error: True（默认）时校验不过抛 ValueError；False 时仅返回问题列表
+        :return: 问题字符串列表，空列表表示全部通过
+        """
+        if not fields:  # 无待校验字段，直接放行，避免白跑一次拉取
+            return []
+        # 自动翻页聚合全量字段（field_name -> item）
+        field_map = {}
+        page_token = None
+        while True:
+            res = self.list_fields(
+                app_token,
+                table_id,
+                page_size=100,
+                page_token=page_token,
+                view_id=view_id,
+            )
+            for item in res["data"].get("items", []):
+                field_map[item["field_name"]] = item
+            if not res["data"].get("has_more"):
+                break
+            next_token = res["data"].get("page_token")
+            # has_more=True 但未返回有效的下一页 token（或 token 未变化）时，
+            # 继续翻只会重复拉同一页 → 死循环，主动中断
+            if not next_token or next_token == page_token:
+                break
+            page_token = next_token
+
+        # 逐项校验：未知字段 / 只读字段
+        issues = []
+        for name in fields:
+            item = field_map.get(name)
+            if item is None:
+                issues.append(f"未知字段「{name}」：数据表中不存在该字段")
+                continue
+            ftype = item.get("type")
+            # IntEnum 与裸 int 等价（FsFieldType.FORMULA == 20 且哈希相同），
+            # 服务端返回的 int type 可直接命中 FsFieldType.READONLY_TYPES
+            if ftype in FsFieldType.READONLY_TYPES:
+                issues.append(
+                    f"字段「{name}」为只读/系统字段（type={int(ftype)}），不可写入"
+                )
+
+        if issues and raise_on_error:
+            raise ValueError("字段校验未通过：\n  " + "\n  ".join(issues))
+        return issues
 
     def delete_table(self, app_token, table_id, **kwargs):
         """删除一个数据表（多维表格中只剩最后一张表时不允许删除）。

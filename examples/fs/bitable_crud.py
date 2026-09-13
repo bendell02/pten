@@ -29,6 +29,13 @@ if __name__ == "__main__":
     table_id = table_res["data"]["table_id"]
     print(f"table_id: {table_id}")
 
+    # (可选步骤,校验输入记录合法性) pre 3. 列出字段，并预校验待写入字段是否符合表定义
+    # （未知字段 / 只读系统字段会在本地被拦截，避免打到服务端才暴露错误）
+    print(bitable.list_fields(app_token, table_id))
+    bitable.validate_record_fields(
+        app_token, table_id, fields={"姓名": "张三", "年龄": 18, "城市": "深圳"}
+    )
+
     # 3. 新增一条记录（fields 的键为字段名，值类型由字段类型决定，详见 create_record 注释）
     record_res = bitable.create_record(
         app_token,

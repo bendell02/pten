@@ -1,9 +1,41 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
+
 from pten.fs_bitable import FsBitable, FsFieldType
 
 from .conftest import assert_fs_response, create_fs_mock_response
+
+
+def _mock_field_list(items, has_more=False, page_token=None):
+    """构造 list_fields 的 mock 响应（默认单页、无更多）。"""
+    return {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": has_more, "page_token": page_token, "items": items},
+    }
+
+
+def test_readonly_types_membership():
+    """READONLY_TYPES 须精确覆盖全部只读字段类型。
+
+    新增只读类型时必须同步加入本集合，否则 validate_record_fields 会放行该类型、
+    预检失效。本测试钉死集合成员，使任何增删成为有意识的测试改动。
+    """
+    assert FsFieldType.READONLY_TYPES == frozenset(
+        {
+            FsFieldType.LOOKUP,
+            FsFieldType.FORMULA,
+            FsFieldType.WORKFLOW,
+            FsFieldType.CREATED_TIME,
+            FsFieldType.MODIFIED_TIME,
+            FsFieldType.CREATED_USER,
+            FsFieldType.MODIFIED_USER,
+            FsFieldType.AUTO_NUMBER,
+            FsFieldType.BUTTON,
+        }
+    )
 
 
 def test_create_app(mocker, fs_keys):
@@ -304,3 +336,160 @@ def test_update_record_user_id_type(mocker, fs_keys):
 
     # user_id_type 作为查询参数拼入 URL
     assert mock_put.call_args.args[0].endswith("records/recXXX?user_id_type=union_id")
+
+
+def test_list_fields(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list(
+        [
+            {"field_id": "fld1", "field_name": "姓名", "type": 1, "ui_type": "Text"},
+            {"field_id": "fld2", "field_name": "年龄", "type": 2, "ui_type": "Number"},
+        ]
+    )
+
+    response = bitable.list_fields(app_token="appXXX", table_id="tblXXX", page_size=10)
+
+    assert_fs_response(response)
+    assert response["data"]["items"][0]["field_id"] == "fld1"
+    # app_token / table_id 走路径参数，page_size 作为查询参数拼入 URL
+    assert mock_get.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/bitable/v1/apps/appXXX/"
+        "tables/tblXXX/fields?page_size=10"
+    )
+    assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
+
+
+def test_list_fields_view_id(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list([])
+
+    bitable.list_fields(app_token="appXXX", table_id="tblXXX", view_id="vewXXX")
+
+    # view_id 作为查询参数拼入 URL
+    assert "view_id=vewXXX" in mock_get.call_args.args[0]
+
+
+def test_list_fields_text_field_as_array(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list([])
+
+    bitable.list_fields(app_token="appXXX", table_id="tblXXX", text_field_as_array=True)
+
+    # 布尔须小写 true，不能是 Python 的 True
+    assert "text_field_as_array=true" in mock_get.call_args.args[0]
+    assert "True" not in mock_get.call_args.args[0]
+
+
+def test_validate_record_fields_unknown(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list(
+        [{"field_id": "fld1", "field_name": "姓名", "type": 1}]
+    )
+
+    # raise_on_error=False：返回问题列表，不抛错；未知字段被检出，已知字段不报
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"姓名": "张三", "不存在的字段": "x"},
+        raise_on_error=False,
+    )
+    assert any("不存在的字段" in i for i in issues)
+    assert not any("姓名" in i for i in issues)
+
+    # raise_on_error=True（默认）：校验不过抛 ValueError，信息含未知字段提示
+    with pytest.raises(ValueError, match="不存在"):
+        bitable.validate_record_fields(
+            app_token="appXXX", table_id="tblXXX", fields={"不存在": "x"}
+        )
+
+
+def test_validate_record_fields_readonly(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    # 公式字段 type=20，只读；文本字段 type=1，可写
+    mock_get.return_value.json.return_value = _mock_field_list(
+        [
+            {"field_id": "fld1", "field_name": "姓名", "type": 1},
+            {"field_id": "fld2", "field_name": "计算结果", "type": FsFieldType.FORMULA},
+        ]
+    )
+
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"姓名": "张三", "计算结果": 123},
+        raise_on_error=False,
+    )
+    # 公式字段被识别为只读，可写字段不报
+    assert any("计算结果" in i and "只读" in i for i in issues)
+    assert not any("姓名" in i for i in issues)
+
+
+def test_validate_record_fields_ok(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list(
+        [
+            {"field_id": "fld1", "field_name": "姓名", "type": 1},
+            {"field_id": "fld2", "field_name": "年龄", "type": 2},
+        ]
+    )
+
+    # 全部为合法可写字段，返回空列表（默认 raise_on_error=True 也不抛错）
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"姓名": "张三", "年龄": 18},
+    )
+    assert issues == []
+
+
+def test_validate_record_fields_paginated(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页：第一页 has_more=True 带 page_token，第二页 has_more=False
+    page1 = _mock_field_list(
+        [{"field_id": "fld1", "field_name": "字段A", "type": 1}],
+        has_more=True,
+        page_token="tok2",
+    )
+    page2 = _mock_field_list(
+        [{"field_id": "fld2", "field_name": "字段B", "type": 2}],
+        has_more=False,
+    )
+    mock_get = mocker.patch("requests.get")
+    mock_get.side_effect = [
+        MagicMock(json=lambda: page1),
+        MagicMock(json=lambda: page2),
+    ]
+
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        # 字段A、字段B 分属两页（合法），字段C 不在两页里（未知）
+        fields={"字段A": "x", "字段B": 1, "字段C": "y"},
+        raise_on_error=False,
+    )
+    # 两页字段都被聚合：A、B 合法，C 未知
+    assert any("字段C" in i for i in issues)
+    assert not any("字段A" in i or "字段B" in i for i in issues)
+    assert mock_get.call_count == 2
+    # 第二次请求带上了第一页返回的 page_token
+    assert "page_token=tok2" in mock_get.call_args_list[1].args[0]

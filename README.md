@@ -429,3 +429,8 @@ response = api.http_call(
 - [pten 设置日志路径](docs/02_pten设置日志路径.md)
 - [pten 一份配置文件支持多 LLM provider](docs/03_pten一份配置文件支持多%20LLM%20provider.md)
 - [用 pten 以应用身份给飞书发消息：FsAppMsgSender 上手指南](docs/04_用pten以应用身份给飞书发消息：FsAppMsgSender%20上手指南.md)
+- [用 pten 操作飞书多维表格：FsBitable 增删改查上手指南](docs/05_用pten操作飞书多维表格：FsBitable%20增删改查上手指南.md)
+- [pten 配置文件查找顺序：环境变量、当前目录、用户主目录](docs/06_pten配置文件查找顺序：环境变量、当前目录、用户主目录.md)
+
+各个模块可运行的最小示例代码见 `examples/` 目录（按 `ww/`、`fs/`、`notice/` 分组），
+运行前提与所需配置见 [examples/README.md](examples/README.md)。

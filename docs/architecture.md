@@ -124,7 +124,7 @@ pten/
 | 模块 | 类 | 职责要点 |
 |---|---|---|
 | `fs_messager.py` | `FsMsgSender` / `FsBotMsgSender` / `FsAppMsgSender` | webhook 文本/卡片；自建应用按 `receive_id` + `receive_id_type`（open_id/user_id/union_id/email/chat_id）发 `im/v1/messages`，`content` 按 im API 序列化为 JSON；省略 `receive_id` 时回退 `[fs]` 配置的默认收件人 |
-| `fs_bitable.py` | `FsBitable` / `FsFieldType` | 多维表格应用/数据表/记录的增删改查、列出字段（`list_fields`）；`FsFieldType` 是字段类型枚举（`IntEnum`，与裸数字等价）；路径占位符由 `_sub` 替换；`validate_record_fields` 拉取字段清单后本地预检未知字段与只读/系统字段 |
+| `fs_bitable.py` | `FsBitable` / `FsFieldType` | 多维表格应用/数据表/记录的增删改查、列出字段（`list_fields`）；`FsFieldType` 是字段类型枚举（`IntEnum`，与裸数字等价）；路径占位符由 `_sub` 替换；`validate_record_fields` 拉取字段清单后本地预检未知字段、只读/系统字段及标量字段取值形状（数字/日期/复选框，日期须传毫秒时间戳而非字符串） |
 | `wwmessager.py` | `MsgSender` / `BotMsgSender` / `AppMsgSender` | 机器人 webhook 发送（`Queue` 自限速每分钟 20 条）；应用消息按有无 `chatid` 走 `appchat/send`（群）或 `message/send`（`touser`/`toparty`/`totag` 缺省 `@all`）；媒体上传经 `_get_media_id` |
 | `wwcontact.py` | `Contact` | 通讯录（用户/部门/标签），用 `[ww] contact_sync_secret` 而非 `app_secret` 建 `CorpApi` |
 | `wwdoc.py` | `Doc` | 智能文档 / 表格 / 收集表端点 |

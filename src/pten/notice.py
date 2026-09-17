@@ -227,10 +227,8 @@ class LLM(Notice):
         if provider not in available:
             info = f"未找到 provider '{provider}' 对应的 [{section}] 段，可用 provider: {available}；或直接传入 base_url/api_key/model。"
             return info + file_hint
-        return (
-            f"[{section}] 段配置不全（缺 base_url/api_key/model 之一）；"
-            f"可用 provider: {available}；或直接传入对应参数。"
-        )
+        info = f"[{section}] 段配置不全（缺 base_url/api_key/model 之一）；可用 provider: {available}；或直接传入对应参数。"
+        return info
 
     def _get_key(self, section, option):
         try:

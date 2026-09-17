@@ -415,6 +415,63 @@ def test_validate_record_fields_unknown(mocker, fs_keys):
         )
 
 
+def test_validate_record_fields_value_type(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_field_list(
+        [
+            {"field_id": "fld1", "field_name": "日期", "type": 5},
+            {"field_id": "fld2", "field_name": "数量", "type": 2},
+            {"field_id": "fld3", "field_name": "完成", "type": 7},
+        ]
+    )
+
+    # 日期传字符串（即 1254064 DatetimeFieldConvFail 的场景）、数字传字符串、
+    # 复选传整数，都在写前被本地拦下
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"日期": "2026-09-17", "数量": "1695", "完成": 1},
+        raise_on_error=False,
+    )
+    assert any("日期" in i and "时间戳" in i for i in issues)
+    assert any("数量" in i and "数字" in i for i in issues)
+    assert any("完成" in i and "bool" in i for i in issues)
+
+    # 取值形状正确时不报；None 表示不写该字段，同样不报
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"日期": 1760000000000, "数量": 1695, "完成": True},
+        raise_on_error=False,
+    )
+    assert issues == []
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"完成": None},
+        raise_on_error=False,
+    )
+    assert issues == []
+
+    # bool 是 int 子类，数字字段传 True 也算类型错误
+    issues = bitable.validate_record_fields(
+        app_token="appXXX",
+        table_id="tblXXX",
+        fields={"数量": True},
+        raise_on_error=False,
+    )
+    assert any("数量" in i for i in issues)
+
+    # raise_on_error=True（默认）时取值形状不符同样抛 ValueError
+    with pytest.raises(ValueError, match="时间戳"):
+        bitable.validate_record_fields(
+            app_token="appXXX", table_id="tblXXX", fields={"日期": "2026-09-17"}
+        )
+
+
 def test_validate_record_fields_readonly(mocker, fs_keys):
     bitable = FsBitable(keys=fs_keys)
     bitable.keys.save_access_token(bitable.api._token_key, "t-fake")

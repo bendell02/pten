@@ -189,6 +189,33 @@ class FsBitable:
         args.update(kwargs)
         return self.api.http_call([url, method], args)
 
+    @staticmethod
+    def _check_value_type(name, ftype, value):
+        """对标量字段类型的取值形状做本地预检，返回问题描述列表。
+
+        只覆盖取值契约无歧义的标量类型（数字 / 日期 / 复选框）；文本、选项、
+        人员、关联等类型的取值形状复杂或服务端可宽容处理，留给服务端判定，
+        避免本地预检误伤合法写入。bool 是 int 的子类，须先排除，
+        否则 True/False 会被当成数字/时间戳放行。
+        """
+        if value is None:
+            # None 表示不写该字段，形状交给服务端判定
+            return []
+        issues = []
+        if ftype == FsFieldType.NUMBER:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                issue = f"字段「{name}」为数字字段，值应为数字，当前为 {type(value).__name__}：{value!r}"
+                issues.append(issue)
+        elif ftype == FsFieldType.DATETIME:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                issue = f"字段「{name}」为日期字段，值应为毫秒时间戳（如 int(time.time() * 1000)），当前为 {type(value).__name__}：{value!r}"
+                issues.append(issue)
+        elif ftype == FsFieldType.CHECKBOX:
+            if not isinstance(value, bool):
+                issue = f"字段「{name}」为复选框字段，值应为 bool，当前为 {type(value).__name__}：{value!r}"
+                issues.append(issue)
+        return issues
+
     def validate_record_fields(
         self,
         app_token,
@@ -201,7 +228,8 @@ class FsBitable:
 
         自动翻页拉取数据表全部字段后逐项检查：
           1) 未知字段——字段名不在数据表中；
-          2) 只读字段——字段为系统/公式/查找引用/按钮/流程等不可写类型。
+          2) 只读字段——字段为系统/公式/查找引用/按钮/流程等不可写类型；
+          3) 取值形状——数字/日期/复选框等标量字段的值类型不符。
 
         :param app_token: 多维表格 app_token
         :param table_id: 数据表 table_id
@@ -234,9 +262,9 @@ class FsBitable:
                 break
             page_token = next_token
 
-        # 逐项校验：未知字段 / 只读字段
+        # 逐项校验：未知字段 / 只读字段 / 标量取值形状
         issues = []
-        for name in fields:
+        for name, value in fields.items():
             item = field_map.get(name)
             if item is None:
                 issues.append(f"未知字段「{name}」：数据表中不存在该字段")
@@ -245,9 +273,10 @@ class FsBitable:
             # IntEnum 与裸 int 等价（FsFieldType.FORMULA == 20 且哈希相同），
             # 服务端返回的 int type 可直接命中 FsFieldType.READONLY_TYPES
             if ftype in FsFieldType.READONLY_TYPES:
-                issues.append(
-                    f"字段「{name}」为只读/系统字段（type={int(ftype)}），不可写入"
-                )
+                issue = f"字段「{name}」为只读/系统字段（type={int(ftype)}），不可写入"
+                issues.append(issue)
+                continue
+            issues.extend(self._check_value_type(name, ftype, value))
 
         if issues and raise_on_error:
             raise ValueError("字段校验未通过：\n  " + "\n  ".join(issues))

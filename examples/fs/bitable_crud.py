@@ -30,7 +30,8 @@ if __name__ == "__main__":
     print(f"table_id: {table_id}")
 
     # (可选步骤,校验输入记录合法性) pre 3. 列出字段，并预校验待写入字段是否符合表定义
-    # （未知字段 / 只读系统字段会在本地被拦截，避免打到服务端才暴露错误）
+    # （未知字段 / 只读系统字段 / 标量字段取值形状会在本地被拦截，
+    #   如日期字段传了字符串而非毫秒时间戳，避免打到服务端才暴露错误）
     print(bitable.list_fields(app_token, table_id))
     bitable.validate_record_fields(
         app_token, table_id, fields={"姓名": "张三", "年龄": 18, "城市": "深圳"}

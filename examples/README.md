@@ -39,6 +39,7 @@ Linux / macOS 上把 `python` 换成 `python3` 即可。
 | `notice/birthday.py` | 生日提醒（农历/阳历，apscheduler 定时） | 无（默认打印；接机器人通知需 `[ww]` webhook_key） |
 | `notice/llm_chat.py` | LLM 对话（直传参数 / provider / 默认配置三种方式） | 脚本内常量，或 `[notice]` llm_*，或 `[llm:<name>]` |
 | `notice/weather.py` | 心知天气查询与通知 | `[notice]` seniverse_api_key |
+| `tools/pypi_stats.py` | PyPI 包下载量查询（周 / 月 / 近 180 天，含限流退避重试） | 无 |
 | `ww/send_bot_msg.py` | 企业微信机器人（webhook）发文本 / markdown | `[ww]` webhook_key |
 | `ww/send_app_msg.py` | 企业微信自建应用发应用消息 | `[ww]` corpid、app_secret、app_agentid |
 

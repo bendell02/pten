@@ -3,7 +3,7 @@
 from codecs import open
 from setuptools import setup, find_packages
 
-requires = ["apscheduler", "lunardate", "openai", "pycryptodome"]
+requires = ["apscheduler", "lunardate", "openai", "pycryptodome", "requests"]
 test_requirements = [
     "pytest>=3",
     "pytest-mock>=3",

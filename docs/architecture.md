@@ -28,10 +28,13 @@ pten/
 │   ├── wwdoc.py           # 企业微信智能文档 / 表格 / 收集表
 │   ├── fs_bitable.py      # 飞书多维表格
 │   ├── notice.py          # 提醒助手（生日 / 天气 / LLM）
+│   ├── tools/             # 工具子包
+│   │   ├── __init__.py    # re-export 各工具类
+│   │   └── pypi_stats.py  # PyPI 包下载量查询（pypistats.org）
 │   └── wwcrypt.py         # 回调消息加解密（vendored）
 ├── tests/                 # pytest 测试（conftest.py 会把 src/ 加入 sys.path）
 ├── docs/                  # 教程与架构文档
-├── examples/              # 最小可运行示例（ww / fs / notice 分组，真实调用 API）
+├── examples/              # 最小可运行示例（ww / fs / notice / tools 分组，真实调用 API）
 ├── pten_keys_example.ini  # 假凭证配置示例（提交进库，mock 测试用）
 ├── pten_keys.ini          # 本地真实配置（gitignore）
 ├── pten_token.json        # token 缓存（运行时生成，gitignore；跟随配置文件目录）
@@ -64,6 +67,7 @@ pten/
 
 独立模块（不在分层栈上，仅依赖 keys 或无依赖）
   · notice.py     Notice / Birthday / LLM / Deepseek / Weather
+  · tools/        PypiStats（PyPI 下载量查询）等工具
   · wwcrypt.py    WXBizMsgCrypt（回调加解密，vendored 自 weworkapi_python）
   · __init__.py   logger 初始化（import pten 即触发）
 ```
@@ -134,6 +138,7 @@ pten/
 ### 4.5 独立模块
 
 - `notice.py` —— 不碰厂商 API 的提醒助手：`Notice`（基类，`report_func` 缺省 `print`，把通知抽象成「条件满足则上报」）；`Birthday`（`lunardate` 农历 + 阳历生日，`apscheduler` 调度、跨年自动排下一轮、处理闰月）；`LLM`（OpenAI 兼容 chat 客户端，`[llm:<name>]` 节或 `[notice] llm_*` 取配置，显式参数最高）；`Deepseek`（DeepSeek 预设，已被 `LLM` 取代）；`Weather`（心知天气 API）
+- `tools/` —— 工具子包：`PypiStats` 查询 PyPI 包下载量（周 / 月 / 近 180 天，数据来自 pypistats.org，`__init__.py` re-export，`from pten.tools import PypiStats`）。
 - `wwcrypt.py` —— 回调消息加解密 `WXBizMsgCrypt`（`VerifyURL` / `DecryptMsg` / `EncryptMsg`），vendored 自 [weworkapi_python](https://github.com/sbzhu/weworkapi_python)，几乎零内部依赖
 - `__init__.py` —— 包入口：`import pten` 即触发 `setup_logging()`，初始化全包共用的 `logger`（详见第 8 节）
 

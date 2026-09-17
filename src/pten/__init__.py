@@ -46,7 +46,10 @@ _file_formatter = logging.Formatter(
 _MAX_BYTES = 30 * 1024 * 1024  # 30MB
 _BACKUP_COUNT = 3
 # delay=True：延迟到首次写入才创建文件，避免 import 阶段落下空的默认 pten.log
-_FILE_HANDLER_KWARGS = dict(maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, delay=True)
+# encoding="utf-8"：显式指定 UTF-8，避免在中文 Windows 上回退到 cp936(GBK) 导致日志中文乱码
+_FILE_HANDLER_KWARGS = dict(
+    maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, delay=True, encoding="utf-8"
+)
 
 
 def _ensure_log_dir(path):

@@ -1,7 +1,7 @@
 
 # pten
 
-**pten** is a Python library designed for convenient and quick use of the WeChat Work and Feishu APIs.
+**pten** is a Python library designed for convenient and quick use of the Feishu and WeChat Work APIs.
 
 github: [https://github.com/bendell02/pten](https://github.com/bendell02/pten)  
 gitee: [https://gitee.com/bendell02/pten](https://gitee.com/bendell02/pten)

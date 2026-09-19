@@ -40,6 +40,7 @@ Linux / macOS 上把 `python` 换成 `python3` 即可。
 | `notice/llm_chat.py` | LLM 对话（直传参数 / provider / 默认配置三种方式） | 脚本内常量，或 `[notice]` llm_*，或 `[llm:<name>]` |
 | `notice/weather.py` | 心知天气查询与通知 | `[notice]` seniverse_api_key |
 | `tools/pypi_stats.py` | PyPI 包下载量查询（周 / 月 / 近 180 天，含限流退避重试） | 无 |
+| `tools/stat_package_downloads.py` | 定时统计 PyPI 包下载量并写入飞书多维表格（每天 12:30，常驻任务） | `[fs]` app_id、app_secret；首跑自动建表，打印的 APP_TOKEN/TABLE_ID 填回脚本 |
 | `ww/send_bot_msg.py` | 企业微信机器人（webhook）发文本 / markdown | `[ww]` webhook_key |
 | `ww/send_app_msg.py` | 企业微信自建应用发应用消息 | `[ww]` corpid、app_secret、app_agentid |
 

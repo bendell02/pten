@@ -55,6 +55,7 @@ pytest tests/test_wwapi.py -k jsapi
 - `wwcontact.py` —— `Contact` 封装 `CorpApi`，用 `contact_sync_secret`（来自 `[ww]`，或显式传入）而非 `app_secret`。
 - `wwdoc.py` —— `Doc` 封装 `CorpApi`，覆盖 wedoc / smartsheet / form 端点。
 - `wwcrypt.py` —— `WXBizMsgCrypt`（VerifyURL / DecryptMsg / EncryptMsg）做回调消息加解密。Vendored 自 `weworkapi_python`。
+- `utils.py` —— 包内公共工具函数（区别于 `tools/` 子包的对外工具），目前仅 `brief_for_log`：把消息体压成适合写日志的简述。
 - `notice.py` —— `Notice` 基类（默认 `report_func=print`）；`Birthday`（`lunardate` 农历 + 阳历，`apscheduler` 调度并自动排下一年，处理闰月）；`LLM`（通用 OpenAI 兼容 chat 客户端，接受 `base_url`/`api_key`/`model`；`provider="openai"` 时读 `[llm:openai]` 节（`base_url`/`api_key`/`model`），否则回落 `[notice]` 的 `llm_*`；显式参数始终优先于配置；取代 `Deepseek`）；`Deepseek`（仅 DeepSeek 的预设，OpenAI 客户端指向 DeepSeek base_url —— 已被 `LLM` 取代）；`Weather`（心知天气 seniverse API）。
 - `tools/` 工具子包：`pypi_stats.PypiStats` 查询 PyPI 包下载量（周/月/近180天）。
 

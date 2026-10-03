@@ -31,6 +31,7 @@ pten/
 │   ├── tools/             # 工具子包
 │   │   ├── __init__.py    # re-export 各工具类
 │   │   └── pypi_stats.py  # PyPI 包下载量查询（pypistats.org）
+│   ├── utils.py           # 公共工具函数（如 brief_for_log，供包内各模块共享）
 │   └── wwcrypt.py         # 回调消息加解密（vendored）
 ├── tests/                 # pytest 测试（conftest.py 会把 src/ 加入 sys.path）
 ├── docs/                  # 教程与架构文档
@@ -66,6 +67,7 @@ pten/
   配置文件查找链 + token/ticket 双层缓存
 
 独立模块（不在分层栈上，仅依赖 keys 或无依赖）
+  · utils.py      brief_for_log 等公共工具（供高层 sender 共享，不依赖 keys/base_api）
   · notice.py     Notice / Birthday / LLM / Deepseek / Weather
   · tools/        PypiStats（PyPI 下载量查询）等工具
   · wwcrypt.py    WXBizMsgCrypt（回调加解密，vendored 自 weworkapi_python）

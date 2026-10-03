@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from pten.wwmessager import AppMsgSender, BotMsgSender
@@ -188,3 +189,66 @@ def test_send_template_card(mocker):
     }
     response = sender.send_template_card(template_card)
     assert_ww_response(response)
+
+
+def test_send_logs_message_content(mocker, caplog):
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    bot = BotMsgSender("pten_keys_example.ini")
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = bot.send_text(content="hello log")
+
+    assert_ww_response(response)
+    assert "发送机器人消息" in caplog.text
+    assert "hello log" in caplog.text
+
+
+def test_send_logs_masks_binary_fields(mocker, caplog):
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    bot = BotMsgSender("pten_keys_example.ini")
+    current_dir = Path(__file__).resolve().parent
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = bot.send_image(str(current_dir) + "/sample_data/sample_image.png")
+
+    assert_ww_response(response)
+    # base64 图片与 md5 不落日志，只记占位符
+    assert '"base64": "<略>"' in caplog.text
+    assert '"md5": "<略>"' in caplog.text
+
+
+def test_send_logs_truncates_long_content(mocker, caplog):
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    bot = BotMsgSender("pten_keys_example.ini")
+    long_content = "报" * 600
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = bot.send_text(content=long_content)
+
+    assert_ww_response(response)
+    # 超长内容截断，正文不完整出现在日志里
+    assert long_content not in caplog.text
+    assert "...<共 " in caplog.text
+
+
+def test_app_send_logs_message_content(mocker, caplog):
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = {
+        "errcode": 0,
+        "errmsg": "ok",
+        "access_token": "fake_token",
+    }
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    app = AppMsgSender("pten_keys_example.ini")
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = app.send_text("hello from app", touser=["user1"])
+
+    assert_ww_response(response)
+    assert "发送应用消息" in caplog.text
+    assert "hello from app" in caplog.text
+    assert "user1" in caplog.text

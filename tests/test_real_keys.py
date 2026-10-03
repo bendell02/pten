@@ -9,8 +9,8 @@ import pytest
 from apscheduler.schedulers.blocking import BlockingScheduler
 from lunardate import LunarDate
 
-from pten import logger
-from pten.fs_api import FsCorpApi
+from pten import fs_api, logger
+from pten.fs_api import FsBotApi, FsCorpApi
 from pten.fs_bitable import FsBitable
 from pten.fs_messager import FsAppMsgSender, FsBotMsgSender
 from pten.keys import Keys
@@ -174,6 +174,19 @@ def test_fs_tenant_access_token():
     token = api.get_access_token()
     # 飞书的 tenant_access_token 以 t- 开头
     assert token and token.startswith("t-")
+
+
+def test_fs_bot_api():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    api = FsBotApi()
+    response = api.http_call(
+        fs_api.BOT_API_TYPE["WEBHOOK_SEND"],
+        {"msg_type": "text", "content": {"text": "hello from bot"}},
+    )
+    print(response)
+    assert_fs_response(response)
 
 
 # ---------------------------------------------------------------------------

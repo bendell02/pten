@@ -17,6 +17,7 @@ from typing import Optional
 
 from . import logger
 from .keys import Keys
+from .utils import brief_for_log
 from .wwapi import BOT_API_TYPE, CORP_API_TYPE, BotApi, CorpApi
 
 
@@ -250,6 +251,7 @@ class BotMsgSender(MsgSender):
                 logger.debug(f"机器人每分钟限制20条消息，需等待 {sleep_time} s")
                 time.sleep(sleep_time)
 
+        logger.info(f"发送机器人消息: {brief_for_log(data)}")
         return self.api.http_call(BOT_API_TYPE["WEBHOOK_SEND"], data)
 
     def send_text(self, content, mentioned_list=[], mentioned_mobile_list=[]):
@@ -459,6 +461,8 @@ class AppMsgSender(MsgSender):
             media_res = self._get_media_id(media_type="image", p_media=Path(media_path))
             thumb_media_id = media_res.get("media_id", None)
             data[msg_type]["articles"][0]["thumb_media_id"] = thumb_media_id
+
+        logger.info(f"发送应用消息: {brief_for_log(data)}")
 
         if data["chatid"]:
             return self.api.http_call(CORP_API_TYPE["APP_CHAT_SEND"], data)

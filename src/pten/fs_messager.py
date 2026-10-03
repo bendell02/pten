@@ -14,6 +14,7 @@ from typing import Optional
 from . import logger
 from .fs_api import BOT_API_TYPE, CORP_API_TYPE, FsBotApi, FsCorpApi
 from .keys import Keys
+from .utils import brief_for_log
 
 
 class FsMsgSender:
@@ -182,6 +183,7 @@ class FsBotMsgSender(FsMsgSender):
                 logger.debug(f"机器人每分钟限制20条消息，需等待 {sleep_time} s")
                 time.sleep(sleep_time)
 
+        logger.info(f"发送飞书机器人消息: {brief_for_log(data)}")
         return self.api.http_call(BOT_API_TYPE["WEBHOOK_SEND"], data)
 
     def send_text(self, content):
@@ -259,6 +261,7 @@ class FsAppMsgSender(FsMsgSender):
         }
         # receive_id_type 是查询参数，发送前替换端点 URL 中的占位符
         shortUrl, method = CORP_API_TYPE["MESSAGE_SEND"]
+        logger.info(f"发送飞书应用消息: {brief_for_log(data)}")
         return self.api.http_call(
             [shortUrl.replace("RECEIVE_ID_TYPE", receive_id_type), method], data
         )

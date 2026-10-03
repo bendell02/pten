@@ -1,4 +1,5 @@
 import json
+import logging
 
 from pten.fs_messager import FsAppMsgSender, FsBotMsgSender
 from pten.keys import Keys
@@ -148,3 +149,30 @@ def test_app_msg_sender_empty_content(mocker, fs_keys):
 
     assert response == {"code": -1, "msg": app.errmsgs["text_error"]}
     assert mock_post.call_count == 0
+
+
+def test_send_logs_message_content(mocker, caplog):
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"code": 0, "msg": "success"}
+
+    bot = FsBotMsgSender("pten_keys_example.ini")
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = bot.send_text(content="hello fs log")
+
+    assert_fs_response(response)
+    assert "发送飞书机器人消息" in caplog.text
+    assert "hello fs log" in caplog.text
+
+
+def test_app_send_logs_message_content(mocker, caplog, fs_keys):
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})
+
+    app = FsAppMsgSender(keys=fs_keys)
+    with caplog.at_level(logging.INFO, logger="pten"):
+        response = app.send_text("hello fs app", receive_id="ou_test")
+
+    assert_fs_response(response)
+    assert "发送飞书应用消息" in caplog.text
+    assert "hello fs app" in caplog.text
+    assert "ou_test" in caplog.text

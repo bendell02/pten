@@ -154,9 +154,11 @@ class FsBotMsgSender(FsMsgSender):
     飞书机器人，支持文本、卡片类型数据的发送
     """
 
-    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
+    def __init__(
+        self, keys_filepath=None, webhook_key=None, keys: Keys = None, **kwargs
+    ):
         super().__init__(keys_filepath, keys=keys, **kwargs)
-        self.api = FsBotApi(keys_filepath, keys=keys)
+        self.api = FsBotApi(keys_filepath, webhook_key=webhook_key, keys=keys)
         self.queue = Queue(20)  # 机器人消息频率限制为每分钟不超过20条消息
 
     def _send(

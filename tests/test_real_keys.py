@@ -52,6 +52,22 @@ def test_ww_bot_api():
     assert response["errmsg"] == "ok"
 
 
+def test_ww_bot_msg_sender_webhook_key():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    # 直接传 webhook_key（key 取自真实配置文件，也可自行输入）
+    try:
+        webhook_key = Keys().get_bot_weebhook_key("ww")
+    except (FileNotFoundError, configparser.Error) as e:
+        pytest.skip(f"Keys config unavailable: {e}")
+
+    bot = BotMsgSender(webhook_key=webhook_key)
+    response = bot.send_text("hello from bot via webhook_key")
+    assert response["errcode"] == 0
+    assert response["errmsg"] == "ok"
+
+
 # ---------------------------------------------------------------------------
 # test_wwcrypt.py —— 回调消息加解密（依赖真实 corpid / app_token / app_aes_key）
 # ---------------------------------------------------------------------------
@@ -203,6 +219,22 @@ def test_fs_bot_send_card():
         content="**hello** world for pytest\n\n[https://www.baidu.com](https://www.baidu.com)",
         template="red",
     )
+    print(response)
+    assert_fs_response(response)
+
+
+def test_fs_bot_msg_sender_webhook_key():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    # 直接传 webhook_key（key 取自真实配置文件，也可自行输入）
+    try:
+        webhook_key = Keys().get_bot_weebhook_key("fs")
+    except (FileNotFoundError, configparser.Error) as e:
+        pytest.skip(f"Keys config unavailable: {e}")
+
+    bot = FsBotMsgSender(webhook_key=webhook_key)
+    response = bot.send_text("hello from bot via webhook_key")
     print(response)
     assert_fs_response(response)
 

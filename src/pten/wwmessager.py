@@ -209,9 +209,11 @@ class BotMsgSender(MsgSender):
     企业微信机器人，支持文本、markdown、图片、图文、文件、语音类型数据的发送
     """
 
-    def __init__(self, keys_filepath=None, keys: Keys = None, **kwargs):
+    def __init__(
+        self, keys_filepath=None, webhook_key=None, keys: Keys = None, **kwargs
+    ):
         super().__init__(keys_filepath, keys=keys, **kwargs)
-        self.api = BotApi(keys_filepath, keys=keys)
+        self.api = BotApi(keys_filepath, webhook_key=webhook_key, keys=keys)
         self.queue = Queue(20)  # 机器人消息频率限制为每分钟不超过20条消息
 
     def _get_media_id(self, media_type: str, p_media: Path):

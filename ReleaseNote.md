@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.15 - 20261003
+1. feat: BotMsgSender和FsBotMsgSender支持直接传入webhook_key来使用
+
 ## v0.4.14 - 20261003
 1. feat: 增加pten统计包下载量并写飞书多维表格的例子
 2. feat: 在日志中记录发送消息的情况

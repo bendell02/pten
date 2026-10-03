@@ -1,6 +1,6 @@
 """企业微信机器人（webhook）发消息示例。
 
-运行前提：[ww] 配置 webhook_key。
+运行前提：[ww] 配置 webhook_key，或构造时直接传入 webhook_key。
 运行方式：python examples/ww/send_bot_msg.py
 """
 
@@ -10,6 +10,9 @@ if __name__ == "__main__":
     # 不传参数时按查找链定位配置文件：
     # PTEN_KEYS_FILE 环境变量 → ./pten_keys.ini → ~/.pten/pten_keys.ini
     bot = BotMsgSender()
+
+    # 机器人只需要 webhook_key，也可直接传入，无需配置文件：
+    # bot = BotMsgSender(webhook_key="your-webhook-key")
 
     # 文本消息；mentioned_list 可提醒指定成员（userid），["@all"] 提醒所有人
     response = bot.send_text("hello from pten", mentioned_list=["@all"])

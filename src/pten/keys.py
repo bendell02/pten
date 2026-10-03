@@ -54,7 +54,7 @@ class Keys:
         logger.info(f"keys_filepath : {self.keys_filepath}")
 
         if not self.keys_filepath.is_file():
-            logger.error(f"Can not find file {self.keys_filepath}")
+            logger.warning(f"Can not find file {self.keys_filepath}")
 
     @classmethod
     def _resolve_keys_filepath(cls, keys_filepath):

@@ -40,6 +40,31 @@ def test_bot_msg_sender(mocker):
     assert_ww_response(response)
 
 
+def test_bot_msg_sender_webhook_key(mocker):
+    # 直接传 webhook_key 时透传到 BotApi，覆盖配置文件里的值
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    custom_key = "custom-webhook-key-from-sender"
+    bot = BotMsgSender("pten_keys_example.ini", webhook_key=custom_key)
+    bot.send_text(content="hello")
+
+    # webhook_key 经 BotApi 替换进 URL，且为传入值而非配置文件里的值
+    request_url = mock_post.call_args.args[0]
+    assert f"key={custom_key}" in request_url
+
+
+def test_bot_msg_sender_webhook_key_only(mocker):
+    # 只传 webhook_key、不给 keys_filepath：查找链找不到配置文件也能构造并发送
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"errcode": 0, "errmsg": "ok"}
+
+    bot = BotMsgSender(webhook_key="key-without-config")
+    bot.send_text(content="hello")
+
+    assert "key=key-without-config" in mock_post.call_args.args[0]
+
+
 def test_app_msg_sender(mocker):
     mock_get = mocker.patch("requests.get")
     mock_get.return_value.json.return_value = {

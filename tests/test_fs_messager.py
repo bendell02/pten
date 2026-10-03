@@ -32,6 +32,20 @@ def test_send_card(mocker):
     assert_fs_response(response)
 
 
+def test_bot_msg_sender_webhook_key(mocker):
+    # 直接传 webhook_key 时透传到 FsBotApi，覆盖配置文件里的值
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"code": 0, "msg": "success"}
+
+    custom_key = "custom-fs-webhook-key-from-sender"
+    bot = FsBotMsgSender("pten_keys_example.ini", webhook_key=custom_key)
+    bot.send_text(content="hello")
+
+    # webhook_key 经 FsBotApi 拼进 URL 路径，且为传入值而非配置文件里的值
+    request_url = mock_post.call_args.args[0]
+    assert request_url.endswith(f"/bot/v2/hook/{custom_key}")
+
+
 def test_app_msg_sender(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response({"code": 0, "msg": "success"})

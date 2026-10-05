@@ -45,7 +45,7 @@ app_secret=dskLLdkasdjlasdKK
 ```
 
 
-## 4. 基础使用：三层数据模型，七个方法
+## 4. 基础使用：三层数据模型
 
 ### 4.1 实例化与方法总览
 
@@ -55,7 +55,7 @@ from pten.fs_bitable import FsBitable
 bitable = FsBitable()  # 缺省按 传入路径/PTEN_KEYS_FILE/当前目录/~/.pten/ 顺序查找配置，也可传路径或 keys 实例
 ```
 
-七个方法按"对象 × 动作"对齐三层数据模型：
+各方法按"对象 × 动作"对齐三层数据模型：
 
 | 方法 | 对象 | 动作 | 对应接口 |
 |---|---|---|---|
@@ -66,6 +66,7 @@ bitable = FsBitable()  # 缺省按 传入路径/PTEN_KEYS_FILE/当前目录/~/.p
 | `create_record` | 记录 | 增 | [新增记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/create) |
 | `update_record` | 记录 | 改 | [更新记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/update) |
 | `delete_record` | 记录 | 删 | [删除记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/delete) |
+| `search_records` | 记录 | 查 | [查询记录](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/search) |
 
 所有方法返回飞书原始响应 dict：成功即 `code == 0`、`msg == "success"`，业务数据在 `data` 里。
 
@@ -242,6 +243,6 @@ app = FsAppMsgSender(keys=keys)  # 写完台账，顺手发条卡片通知
 
 ## 7. 小结
 
-- `FsBitable` 七个方法覆盖多维表格、数据表、记录三层的增删改查（v0.4.9），`FsFieldType` 补齐字段类型的可读性（v0.4.10）；鉴权与 token 管理完全复用 pten 既有的自建应用链路，配好 `[fs]` 的 `app_id`/`app_secret` 就能用；
+- `FsBitable` 的方法覆盖多维表格、数据表、记录三层的增删改查（v0.4.9），`FsFieldType` 补齐字段类型的可读性（v0.4.10）；鉴权与 token 管理完全复用 pten 既有的自建应用链路，配好 `[fs]` 的 `app_id`/`app_secret` 就能用；
 - 和消息能力组合是它最顺手的玩法：定时任务跑完把结果写进多维表格，再给负责人发张卡片，台账与通知一条链路；
 - 更多细节见 [pten 主页](https://github.com/bendell02/pten)（[Gitee 镜像](https://gitee.com/bendell02/pten)）的 README 与源码 docstring——每个方法都附了对应的飞书官方文档链接。

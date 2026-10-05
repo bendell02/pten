@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.16 - 20261005
+1. feat(fs_bitable): 增加查询记录的 search_records 方法
+
 ## v0.4.15 - 20261003
 1. feat: BotMsgSender和FsBotMsgSender支持直接传入webhook_key来使用
 

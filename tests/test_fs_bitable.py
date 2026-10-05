@@ -338,6 +338,238 @@ def test_update_record_user_id_type(mocker, fs_keys):
     assert mock_put.call_args.args[0].endswith("records/recXXX?user_id_type=union_id")
 
 
+def test_search_records_single_page(mocker, fs_keys):
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = create_fs_mock_response(
+        {
+            "code": 0,
+            "msg": "success",
+            "data": {
+                "has_more": False,
+                "total": 1,
+                "items": [{"record_id": "recXXX", "fields": {"姓名": "张三"}}],
+            },
+        }
+    )
+
+    bitable = FsBitable(keys=fs_keys)
+    response = bitable.search_records(
+        app_token="appXXX",
+        table_id="tblXXX",
+        field_names=["姓名"],
+        sort=[{"field_name": "姓名", "desc": True}],
+        filter={
+            "conjunction": "and",
+            "conditions": [
+                {"field_name": "年龄", "operator": "isGreater", "value": ["18"]}
+            ],
+        },
+        view_id="vewXXX",
+        automatic_fields=True,
+        fetch_all=False,
+    )
+
+    assert_fs_response(response)
+    assert response["data"]["items"][0]["record_id"] == "recXXX"
+    # app_token / table_id 走路径参数，查询条件全部在请求体里
+    assert mock_post.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/bitable/v1/apps/appXXX/"
+        "tables/tblXXX/records/search"
+    )
+    body = json.loads(mock_post.call_args.kwargs["data"])
+    assert body == {
+        "field_names": ["姓名"],
+        "sort": [{"field_name": "姓名", "desc": True}],
+        "filter": {
+            "conjunction": "and",
+            "conditions": [
+                {"field_name": "年龄", "operator": "isGreater", "value": ["18"]}
+            ],
+        },
+        "view_id": "vewXXX",
+        "automatic_fields": True,
+    }
+    assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
+
+
+def test_search_records_single_page_query_params(mocker, fs_keys):
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = create_fs_mock_response(
+        {"code": 0, "msg": "success", "data": {"items": []}}
+    )
+
+    bitable = FsBitable(keys=fs_keys)
+    bitable.search_records(
+        app_token="appXXX",
+        table_id="tblXXX",
+        user_id_type="union_id",
+        page_size=100,
+        page_token="tokX",
+        fetch_all=False,
+    )
+
+    # user_id_type / page_size / page_token 作为查询参数拼入 URL（page_size 须拼成 "100"）
+    assert mock_post.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/bitable/v1/apps/appXXX/"
+        "tables/tblXXX/records/search?user_id_type=union_id&page_size=100&page_token=tokX"
+    )
+    # 可选请求体参数缺省时 body 为空 dict，不混入 null 字段
+    body = json.loads(mock_post.call_args.kwargs["data"])
+    assert body == {}
+
+
+def test_search_records_single_page_returns_raw_response(mocker, fs_keys):
+    # fetch_all=False 返回原始响应 dict（含 has_more / page_token / total），翻页控制权在调用方
+    raw = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "page_token": "tok2", "total": 30, "items": []},
+    }
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = create_fs_mock_response(raw)
+
+    bitable = FsBitable(keys=fs_keys)
+    response = bitable.search_records(
+        app_token="appXXX", table_id="tblXXX", fetch_all=False
+    )
+
+    assert response == raw
+
+
+def test_search_records_fetch_all(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页：第一页 has_more=True 带 page_token，第二页 has_more=False
+    page1 = {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": True,
+            "page_token": "tok2",
+            "total": 2,
+            "items": [{"record_id": "rec1", "fields": {}}],
+        },
+    }
+    page2 = {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": False,
+            "items": [{"record_id": "rec2", "fields": {}}],
+        },
+    }
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = [
+        MagicMock(json=lambda: page1),
+        MagicMock(json=lambda: page2),
+    ]
+
+    # 不传 fetch_all（默认 True）：自动翻页聚合成响应 dict（data.items 为全量记录）
+    response = bitable.search_records(
+        app_token="appXXX",
+        table_id="tblXXX",
+        filter={"conjunction": "and", "conditions": []},
+    )
+
+    # 两页 items 聚合进 data.items；has_more=False 表示已拉完，total 为实际返回数
+    assert [r["record_id"] for r in response["data"]["items"]] == ["rec1", "rec2"]
+    assert response["data"]["has_more"] is False
+    assert response["data"]["total"] == 2
+    assert mock_post.call_count == 2
+    # page_size 缺省取 API 上限 500（最小化请求次数）；第二次请求带上第一页返回的 page_token
+    assert "page_size=500" in mock_post.call_args_list[0].args[0]
+    assert "page_token=tok2" in mock_post.call_args_list[1].args[0]
+    # 查询条件随每次请求重发（body 一致，分页参数只体现在 URL）
+    body1 = json.loads(mock_post.call_args_list[0].kwargs["data"])
+    body2 = json.loads(mock_post.call_args_list[1].kwargs["data"])
+    assert body1 == body2 == {"filter": {"conjunction": "and", "conditions": []}}
+
+
+def test_search_records_fetch_all_explicit_page_size(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": False, "items": []},
+    }
+
+    # fetch_all=True 时显式 page_size 优先，不被缺省 500 覆盖
+    response = bitable.search_records(
+        app_token="appXXX", table_id="tblXXX", page_size=200
+    )
+
+    assert "page_size=200" in mock_post.call_args.args[0]
+    assert_fs_response(response)
+
+
+def test_search_records_fetch_all_loop_guard_missing_token(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # has_more=True 但响应未带 page_token：继续翻只会空转，须主动中断
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "items": [{"record_id": "rec1", "fields": {}}]},
+    }
+
+    response = bitable.search_records(app_token="appXXX", table_id="tblXXX")
+
+    # 中断而非死循环：只发一次请求，已拉到的记录仍返回（has_more=False 表示不再继续翻）
+    assert mock_post.call_count == 1
+    assert [r["record_id"] for r in response["data"]["items"]] == ["rec1"]
+    assert response["data"]["has_more"] is False
+
+
+def test_search_records_fetch_all_loop_guard_unchanged_token(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页响应都返回同一个 page_token（服务端重复同页）：token 未变化时中断
+    page = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "page_token": "tok2", "items": []},
+    }
+    mock_post = mocker.patch("requests.post")
+    mock_post.side_effect = [
+        MagicMock(json=lambda: page),
+        MagicMock(json=lambda: page),
+    ]
+
+    response = bitable.search_records(app_token="appXXX", table_id="tblXXX")
+
+    # 第二次发现 token 未变化即中断，不无限翻页
+    assert mock_post.call_count == 2
+    assert response["data"]["items"] == []
+    assert response["data"]["has_more"] is False
+
+
+def test_search_records_fetch_all_from_page_token(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": False, "items": [{"record_id": "rec9", "fields": {}}]},
+    }
+
+    # page_token 是起始标记：fetch_all=True 时从该标记处继续聚合
+    response = bitable.search_records(
+        app_token="appXXX", table_id="tblXXX", page_token="tokX"
+    )
+
+    assert "page_token=tokX" in mock_post.call_args.args[0]
+    assert [r["record_id"] for r in response["data"]["items"]] == ["rec9"]
+
+
 def test_list_fields(mocker, fs_keys):
     bitable = FsBitable(keys=fs_keys)
     bitable.keys.save_access_token(bitable.api._token_key, "t-fake")

@@ -68,6 +68,10 @@ CORP_API_TYPE = {
         "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records/RECORD_ID",
         "DELETE",
     ],
+    "BITABLE_RECORD_SEARCH": [
+        "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records/search",
+        "POST",
+    ],
 }
 
 

@@ -52,8 +52,23 @@ if __name__ == "__main__":
     # 5. 列出多维表格下的所有数据表（响应含分页 has_more / page_token）
     print(bitable.list_tables(app_token))
 
-    # 6. 删除记录
+    # 6. 按条件查询记录：默认自动翻页聚合并返回响应 dict（data.items 为全部匹配记录、
+    #    data.has_more=False）；传 fetch_all=False 则单页返回原始响应
+    #    （data 含 items / has_more / page_token / total）；
+    #    filter 的 conditions 各为 {field_name, operator, value}，运算符见 search_records 注释
+    print(
+        bitable.search_records(
+            app_token,
+            table_id,
+            filter={
+                "conjunction": "and",
+                "conditions": [{"field_name": "城市", "operator": "is", "value": ["深圳"]}],
+            },
+        )
+    )
+
+    # 7. 删除记录
     print(bitable.delete_record(app_token, table_id, record_id))
 
-    # 7. 删除数据表（注意：多维表格只剩最后一张表时不允许删除）
+    # 8. 删除数据表（注意：多维表格只剩最后一张表时不允许删除）
     print(bitable.delete_table(app_token, table_id))

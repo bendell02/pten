@@ -394,3 +394,128 @@ class FsBitable:
         data = {"fields": fields}
         data.update(kwargs)
         return self.api.http_call([url, method], data)
+
+    def _search_records_page(
+        self,
+        app_token,
+        table_id,
+        field_names=None,
+        sort=None,
+        filter=None,
+        view_id=None,
+        automatic_fields=None,
+        user_id_type=None,
+        page_size=None,
+        page_token=None,
+        **kwargs,
+    ):
+        """单页查询数据表记录，返回原始响应 dict（供 :meth:`search_records` 翻页使用）。
+
+        参数含义同 :meth:`search_records`（无 fetch_all；page_size 缺省不传，
+        由服务端取默认 20）。
+        """
+        shortUrl, method = CORP_API_TYPE["BITABLE_RECORD_SEARCH"]
+        url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+        # POST 的 args 进请求体，查询参数必须走 URL；复用 _append_args 拼 ?/&（同 create_record）
+        query = {}
+        if user_id_type:
+            query["user_id_type"] = user_id_type
+        if page_size is not None:
+            query["page_size"] = str(page_size)
+        if page_token:
+            query["page_token"] = page_token
+        if query:
+            url = self.api._append_args(url, query)
+        data = {}
+        if view_id:
+            data["view_id"] = view_id
+        if field_names:
+            data["field_names"] = field_names
+        if sort:
+            data["sort"] = sort
+        if filter:
+            data["filter"] = filter
+        if automatic_fields is not None:
+            data["automatic_fields"] = automatic_fields
+        data.update(kwargs)
+        return self.api.http_call([url, method], data)
+
+    def search_records(
+        self,
+        app_token,
+        table_id,
+        field_names=None,
+        sort=None,
+        filter=None,
+        view_id=None,
+        automatic_fields=None,
+        user_id_type=None,
+        fetch_all=True,
+        page_size=None,
+        page_token=None,
+        **kwargs,
+    ):
+        """按条件查询数据表中的记录，默认自动翻页返回全部匹配记录。
+
+        :param app_token: 多维表格 app_token
+        :param table_id: 数据表 table_id
+        :param field_names: 字段名列表，限定返回记录中包含的字段，缺省返回全部字段
+        :param sort: 排序条件列表，每项 {"field_name": 字段名, "desc": 是否倒序}
+        :param filter: 条件筛选，形如 {"conjunction": "and"/"or", "conditions": [...]}，
+            每个条件为 {"field_name": 字段名, "operator": 运算符, "value": [值...]}；
+            运算符与 value 填写见官方「记录筛选参数填写指南」
+        :param view_id: 视图 ID（filter 或 sort 不为空时会被服务端忽略）
+        :param automatic_fields: 是否返回创建/修改时间与创建/修改人字段，缺省不返回
+        :param user_id_type: 人员字段 ID 类型 open_id/union_id/user_id，缺省 open_id（服务端默认）
+        :param fetch_all: True（默认）自动翻页，聚合全部匹配记录后返回响应 dict
+            （data.items 为全量记录列表，data.has_more=False，data.total 为实际返回数）；
+            False 只查一页，返回原始响应 dict（data 含 items / has_more / page_token / total），
+            翻页控制权在调用方
+        :param page_size: 分页大小，最大 500；fetch_all=True 缺省 500（API 上限，
+            最小化请求次数），False 缺省不传（服务端默认 20）
+        :param page_token: 起始分页标记，缺省从头遍历；fetch_all=True 时从该标记处继续聚合
+        :return: 始终返回响应 dict（fetch_all=True 时 data.items 为聚合后的全量记录、
+            data.has_more=False；False 时为单页原始响应）
+        https://open.feishu.cn/document/docs/bitable-v1/app-table-record/search
+        """
+        # 全量：page_size 未显式指定时取 API 上限，最小化请求次数
+        if fetch_all and page_size is None:
+            page_size = 500
+        records = []
+        while True:
+            res = self._search_records_page(
+                app_token,
+                table_id,
+                field_names=field_names,
+                sort=sort,
+                filter=filter,
+                view_id=view_id,
+                automatic_fields=automatic_fields,
+                user_id_type=user_id_type,
+                page_size=page_size,
+                page_token=page_token,
+                **kwargs,
+            )
+            if not fetch_all:
+                # 单页模式：返回原始响应，翻页控制权在调用方
+                return res
+            records.extend(res["data"].get("items", []))
+            if not res["data"].get("has_more"):
+                break
+            next_token = res["data"].get("page_token")
+            # has_more=True 但未返回有效的下一页 token（或 token 未变化）时，
+            # 继续翻只会重复拉同一页 → 死循环，主动中断（同 validate_record_fields）
+            if not next_token or next_token == page_token:
+                break
+            page_token = next_token
+        # 聚合后构造与单页响应同形的 dict：items 为全量记录，has_more=False 表示
+        # 已拉完，total 为实际返回的记录数（与 fetch_all=False 返回类型一致）
+        return {
+            "code": 0,
+            "msg": "success",
+            "data": {
+                "items": records,
+                "has_more": False,
+                "total": len(records),
+            },
+        }

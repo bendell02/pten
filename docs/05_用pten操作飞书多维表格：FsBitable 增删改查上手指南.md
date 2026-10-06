@@ -90,7 +90,7 @@ resp = bitable.create_table(
 )
 table_id = resp["data"]["table_id"]
 
-# 列出多维表格下的所有数据表
+# 列出多维表格下的所有数据表（默认自动翻页，data.items 即全部数据表）
 resp = bitable.list_tables(app_token=app_token)
 for table in resp["data"]["items"]:
     print(table["table_id"], table["name"])
@@ -99,7 +99,7 @@ for table in resp["data"]["items"]:
 bitable.delete_table(app_token=app_token, table_id=table_id)
 ```
 
-`create_table` 的 `name` 限 1~100 字符、不可含 `/ \ ? * : [ ]`；`fields` 不传则创建仅含索引字段的空表。`list_tables` 支持分页：`page_size` 默认 20、最大 100，响应 `has_more` 为真时把返回的 `page_token` 传回去接着翻页。
+`create_table` 的 `name` 限 1~100 字符、不可含 `/ \ ? * : [ ]`；`fields` 不传则创建仅含索引字段的空表。`list_tables` 默认自动翻页聚合并返回全量数据表（`data.has_more=False`）；要自己控制翻页时传 `fetch_all=False`，拿到原始单页响应（含 `has_more` / `page_token`）后把 `page_token` 传回去接着查。
 
 ### 4.3 记录的增、改、删
 
@@ -239,7 +239,7 @@ app = FsAppMsgSender(keys=keys)  # 写完台账，顺手发条卡片通知
 - **删不掉数据表**：多维表格只剩最后一张数据表时，删除接口会拒绝——留张空表，或人工删掉整个多维表格；
 - **token 要自己管吗**：不用。`FsCorpApi` 自动取 `tenant_access_token`、以 `Authorization: Bearer` 请求头携带、持久化到 `pten_token.json`，命中过期码（`99991661`/`99991663`）时自动刷新并重试，最多 3 次；
 - **怎么判断成功**：`resp["code"] == 0`（`msg == "success"`）；失败时 dict 里带飞书的错误码和消息，照着处理即可；
-- **怎么"查记录"**：当前的"查"是 `list_tables`（查数据表）；按条件查询记录的接口尚未封装，需要的话照现有模式扩展——在 `fs_api.CORP_API_TYPE` 加端点、`FsBitable` 加薄方法即可。
+- **怎么"查记录"**：用 `search_records`（v0.4.16 起提供）——传 `filter` 按条件查询，默认自动翻页聚合并返回全部匹配记录；它与 `list_tables`/`list_fields` 一样默认 `fetch_all=True`，要单页原始响应（自己控制翻页）传 `fetch_all=False`。
 
 ## 7. 小结
 

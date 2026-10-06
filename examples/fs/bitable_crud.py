@@ -49,7 +49,7 @@ if __name__ == "__main__":
     # 4. 增量更新记录（只更新传入的字段；置空传 None）
     print(bitable.update_record(app_token, table_id, record_id, fields={"年龄": 19}))
 
-    # 5. 列出多维表格下的所有数据表（响应含分页 has_more / page_token）
+    # 5. 列出多维表格下的所有数据表（默认自动翻页聚合，data.items 即全部数据表）
     print(bitable.list_tables(app_token))
 
     # 6. 按条件查询记录：默认自动翻页聚合并返回响应 dict（data.items 为全部匹配记录、
@@ -62,7 +62,9 @@ if __name__ == "__main__":
             table_id,
             filter={
                 "conjunction": "and",
-                "conditions": [{"field_name": "城市", "operator": "is", "value": ["深圳"]}],
+                "conditions": [
+                    {"field_name": "城市", "operator": "is", "value": ["深圳"]}
+                ],
             },
         )
     )

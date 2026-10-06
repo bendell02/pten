@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.17 - 20261006
+1. refactor(fs_bitable): 分页聚合下沉为内部实现，统一和简化对外接口
+
 ## v0.4.16 - 20261005
 1. feat(fs_bitable): 增加查询记录的 search_records 方法
 

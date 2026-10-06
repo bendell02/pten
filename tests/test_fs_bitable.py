@@ -150,6 +150,131 @@ def test_list_tables(mocker, fs_keys):
     assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
 
 
+def test_list_tables_fetch_all(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页：第一页 has_more=True 带 page_token，第二页 has_more=False
+    page1 = {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": True,
+            "page_token": "tok2",
+            "total": 2,
+            "items": [{"table_id": "tbl1", "name": "数据表1", "revision": 1}],
+        },
+    }
+    page2 = {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": False,
+            "items": [{"table_id": "tbl2", "name": "数据表2", "revision": 1}],
+        },
+    }
+    mock_get = mocker.patch("requests.get")
+    mock_get.side_effect = [
+        MagicMock(json=lambda: page1),
+        MagicMock(json=lambda: page2),
+    ]
+
+    # 不传 fetch_all（默认 True）：自动翻页聚合成响应 dict（data.items 为全部数据表）
+    response = bitable.list_tables(app_token="appXXX")
+
+    # 两页 items 聚合进 data.items；has_more=False 表示已拉完，total 为实际返回数
+    assert [t["table_id"] for t in response["data"]["items"]] == ["tbl1", "tbl2"]
+    assert response["data"]["has_more"] is False
+    assert response["data"]["total"] == 2
+    assert mock_get.call_count == 2
+    # page_size 缺省取 API 上限 100（最小化请求次数）；第二次请求带上第一页返回的 page_token
+    assert "page_size=100" in mock_get.call_args_list[0].args[0]
+    assert "page_token=tok2" in mock_get.call_args_list[1].args[0]
+
+
+def test_list_tables_fetch_all_loop_guard_missing_token(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # has_more=True 但响应未带 page_token：继续翻只会空转，须主动中断
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": True,
+            "items": [{"table_id": "tbl1", "name": "数据表1", "revision": 1}],
+        },
+    }
+
+    response = bitable.list_tables(app_token="appXXX")
+
+    # 中断而非死循环：只发一次请求，已拉到的数据表仍返回（has_more=False 表示不再继续翻）
+    assert mock_get.call_count == 1
+    assert [t["table_id"] for t in response["data"]["items"]] == ["tbl1"]
+    assert response["data"]["has_more"] is False
+
+
+def test_list_tables_fetch_all_loop_guard_unchanged_token(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页响应都返回同一个 page_token（服务端重复同页）：token 未变化时中断
+    page = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "page_token": "tok2", "items": []},
+    }
+    mock_get = mocker.patch("requests.get")
+    mock_get.side_effect = [
+        MagicMock(json=lambda: page),
+        MagicMock(json=lambda: page),
+    ]
+
+    response = bitable.list_tables(app_token="appXXX")
+
+    # 第二次发现 token 未变化即中断，不无限翻页
+    assert mock_get.call_count == 2
+    assert response["data"]["items"] == []
+    assert response["data"]["has_more"] is False
+
+
+def test_list_tables_fetch_all_explicit_page_size(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": False, "items": []},
+    }
+
+    # fetch_all=True 时显式 page_size 优先，不被缺省 100 覆盖
+    response = bitable.list_tables(app_token="appXXX", page_size=50)
+
+    assert "page_size=50" in mock_get.call_args.args[0]
+    assert_fs_response(response)
+
+
+def test_list_tables_single_page_returns_raw_response(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # fetch_all=False 返回原始响应 dict（含 has_more / page_token / total），翻页控制权在调用方
+    raw = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "page_token": "tok2", "total": 30, "items": []},
+    }
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = raw
+
+    response = bitable.list_tables(app_token="appXXX", fetch_all=False)
+
+    assert response == raw
+
+
 def test_delete_table(mocker, fs_keys):
     bitable = FsBitable(keys=fs_keys)
     bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
@@ -619,6 +744,56 @@ def test_list_fields_text_field_as_array(mocker, fs_keys):
     # 布尔须小写 true，不能是 Python 的 True
     assert "text_field_as_array=true" in mock_get.call_args.args[0]
     assert "True" not in mock_get.call_args.args[0]
+
+
+def test_list_fields_fetch_all(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # 两页字段：第一页 has_more=True 带 page_token，第二页 has_more=False
+    page1 = _mock_field_list(
+        [{"field_id": "fld1", "field_name": "字段A", "type": 1}],
+        has_more=True,
+        page_token="tok2",
+    )
+    page2 = _mock_field_list([{"field_id": "fld2", "field_name": "字段B", "type": 2}])
+    mock_get = mocker.patch("requests.get")
+    mock_get.side_effect = [
+        MagicMock(json=lambda: page1),
+        MagicMock(json=lambda: page2),
+    ]
+
+    # 不传 fetch_all（默认 True）：自动翻页聚合成响应 dict（data.items 为全部字段）
+    response = bitable.list_fields(app_token="appXXX", table_id="tblXXX")
+
+    assert_fs_response(response)
+    assert [f["field_id"] for f in response["data"]["items"]] == ["fld1", "fld2"]
+    assert response["data"]["has_more"] is False
+    assert response["data"]["total"] == 2
+    assert mock_get.call_count == 2
+    # page_size 缺省取 API 上限 100（最小化请求次数）；第二次请求带上第一页返回的 page_token
+    assert "page_size=100" in mock_get.call_args_list[0].args[0]
+    assert "page_token=tok2" in mock_get.call_args_list[1].args[0]
+
+
+def test_list_fields_single_page_returns_raw_response(mocker, fs_keys):
+    bitable = FsBitable(keys=fs_keys)
+    bitable.keys.save_access_token(bitable.api._token_key, "t-fake")
+
+    # fetch_all=False 返回原始响应 dict（含 has_more / page_token / total），翻页控制权在调用方
+    raw = {
+        "code": 0,
+        "msg": "success",
+        "data": {"has_more": True, "page_token": "tok2", "total": 30, "items": []},
+    }
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = raw
+
+    response = bitable.list_fields(
+        app_token="appXXX", table_id="tblXXX", fetch_all=False
+    )
+
+    assert response == raw
 
 
 def test_validate_record_fields_unknown(mocker, fs_keys):

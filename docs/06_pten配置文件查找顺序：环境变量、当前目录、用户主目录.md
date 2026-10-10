@@ -14,7 +14,7 @@ pten v0.4.11 之前，配置文件 `pten_keys.ini` 的路径写死成当前目�
 
 本功能自 v0.4.11 起发布，升级到该版本即可使用。pten 主页在 GitHub（含 Gitee 镜像），要求 Python 3.8+。
 - pten 主页：[GitHub](https://github.com/bendell02/pten)（[Gitee 镜像](https://gitee.com/bendell02/pten)）
-- 安装/升级：`pip install -U pten`（>= 0.4.11，Python 3.8+）；或 clone 仓库后源码安装 `pip install -e .`
+- 安装/升级：`pip install -U pten`（>= 0.4.11；v0.4.18 起要求 Python 3.10+，更早版本 3.8+）；或 clone 仓库后源码安装 `pip install -e .`
 - 准备一个最小配置文件，比如只用企业微信机器人，`pten_keys.ini` 里放：
 ```ini
 [ww]

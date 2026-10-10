@@ -3,7 +3,15 @@
 from codecs import open
 from setuptools import setup, find_packages
 
-requires = ["apscheduler", "lunardate", "openai", "pycryptodome", "requests"]
+requires = [
+    "apscheduler",
+    "httpx2",
+    "lunardate",
+    "openai",
+    "pycryptodome",
+    "requests",
+    "typesafe-sdk",
+]
 test_requirements = [
     "pytest>=3",
     "pytest-mock>=3",
@@ -14,7 +22,7 @@ with open("README.md", "r", "utf-8") as f:
 
 setup(
     name="pten",
-    version="0.4.17",
+    version="0.4.18",
     description="A tool to use WeWork(企业微信) and feishu(飞书) API quickly and easily",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -23,7 +31,7 @@ setup(
     url="https://github.com/bendell02/pten",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    python_requires=">=3.8",
+    python_requires=">=3.10",
     install_requires=requires,
     tests_require=test_requirements,
     classifiers=[

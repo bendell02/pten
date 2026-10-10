@@ -15,6 +15,7 @@ from pten.fs_bitable import FsBitable
 from pten.fs_messager import FsAppMsgSender, FsBotMsgSender
 from pten.keys import Keys
 from pten.notice import LLM, Birthday, Weather
+from pten.tools import Choice, Jev, Noul, Score
 from pten.wwapi import BOT_API_TYPE, BotApi
 from pten.wwcrypt import WXBizMsgCrypt
 from pten.wwmessager import BotMsgSender
@@ -125,6 +126,43 @@ def test_llm_real():
     content = llm.get_completion("你好")
     print(content)
     assert content != ""
+
+
+def test_jev_real():
+    if not use_real_keys:
+        pytest.skip("use_real_keys is False")
+
+    jev = _real_client_or_skip(Jev)
+    ticket = "Hi, I've been trying to connect my Stripe account for 3 days and the integration keeps failing. I'm losing sales. Please help ASAP."
+    questions = {
+        "is_urgent": Noul(
+            instructions="The message conveys urgency or time-sensitivity",
+        ),
+        "department": Choice(
+            instructions="Which team should handle this",
+            criteria={
+                "billing": "Payment or subscription issues",
+                "technical": "Bugs or integration problems",
+                "sales": "Pricing or account questions",
+            },
+        ),
+        "frustration": Score(
+            instructions="How frustrated the customer appears",
+            criteria=[
+                "Calm, just stating facts",
+                "Frustrated but civil",
+                "Very angry, strong language",
+            ],
+        ),
+    }
+    response = jev.ask(ticket, questions)
+    answers = response.answers
+    assert answers["department"].choice in {"billing", "technical", "sales"}
+    assert 0 <= answers["frustration"].score <= 2  # 3 个等级 → 0~2
+    assert 0 <= answers["is_urgent"].noul <= 1
+    print("is_urgent:", response.answers["is_urgent"].noul)
+    print("department:", response.answers["department"].choice)
+    print("frustration:", response.answers["frustration"].score)
 
 
 def test_ww_weather_report():

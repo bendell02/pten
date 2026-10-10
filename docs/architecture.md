@@ -30,7 +30,8 @@ pten/
 │   ├── notice.py          # 提醒助手（生日 / 天气 / LLM）
 │   ├── tools/             # 工具子包
 │   │   ├── __init__.py    # re-export 各工具类
-│   │   └── pypi_stats.py  # PyPI 包下载量查询（pypistats.org）
+│   │   ├── pypi_stats.py  # PyPI 包下载量查询（pypistats.org）
+│   │   └── jev.py         # TypeSafe AI jev 模型调用（System One API）
 │   ├── utils.py           # 公共工具函数（如 brief_for_log，供包内各模块共享）
 │   └── wwcrypt.py         # 回调消息加解密（vendored）
 ├── tests/                 # pytest 测试（conftest.py 会把 src/ 加入 sys.path）
@@ -69,7 +70,7 @@ pten/
 独立模块（不在分层栈上，仅依赖 keys 或无依赖）
   · utils.py      brief_for_log 等公共工具（供高层 sender 共享，不依赖 keys/base_api）
   · notice.py     Notice / Birthday / LLM / Deepseek / Weather
-  · tools/        PypiStats（PyPI 下载量查询）等工具
+  · tools/        PypiStats（PyPI 下载量查询）、Jev（TypeSafe AI jev 模型）等工具
   · wwcrypt.py    WXBizMsgCrypt（回调加解密，vendored 自 weworkapi_python）
   · __init__.py   logger 初始化（import pten 即触发）
 ```
@@ -82,7 +83,7 @@ pten/
 
 `Keys` 是所有其他模块唯一的配置依赖，负责三件事：
 
-- **定位并读取配置文件**：查找链（显式路径 → `PTEN_KEYS_FILE` → `./pten_keys.ini` → `~/.pten/pten_keys.ini`，前两级严格、后两级探测）由 `_resolve_keys_filepath` 实现；文件按 UTF-8 读，失败回落本机编码以兼容老的 GBK 文件。节（section）包括 `ww` / `fs` / `globals` / `proxies` / `notice`，以及任意多个 `[llm:<name>]` provider 节（`list_llm_providers` 枚举）
+- **定位并读取配置文件**：查找链（显式路径 → `PTEN_KEYS_FILE` → `./pten_keys.ini` → `~/.pten/pten_keys.ini`，前两级严格、后两级探测）由 `_resolve_keys_filepath` 实现；文件按 UTF-8 读，失败回落本机编码以兼容老的 GBK 文件。节（section）包括 `ww` / `fs` / `globals` / `proxies` / `notice` / `jev`，以及任意多个 `[llm:<name>]` provider 节（`list_llm_providers` 枚举）
 - **提供类型化读取**：`get_key` / `get_keys` / `get_debug_mode` / `get_log_path` / `get_proxies` / `get_bot_weebhook_key` / `get_contact_sync_secret` / `get_fs_receive_id*` 等
 - **持有 token/ticket 缓存**（详见第 6 节）：内存字典 + `pten_token.json` 持久化，两者都跟随最终解析出的配置文件所在目录
 
@@ -140,7 +141,7 @@ pten/
 ### 4.5 独立模块
 
 - `notice.py` —— 不碰厂商 API 的提醒助手：`Notice`（基类，`report_func` 缺省 `print`，把通知抽象成「条件满足则上报」）；`Birthday`（`lunardate` 农历 + 阳历生日，`apscheduler` 调度、跨年自动排下一轮、处理闰月）；`LLM`（OpenAI 兼容 chat 客户端，`[llm:<name>]` 节或 `[notice] llm_*` 取配置，显式参数最高）；`Deepseek`（DeepSeek 预设，已被 `LLM` 取代）；`Weather`（心知天气 API）
-- `tools/` —— 工具子包：`PypiStats` 查询 PyPI 包下载量（周 / 月 / 近 180 天，数据来自 pypistats.org，`__init__.py` re-export，`from pten.tools import PypiStats`）。
+- `tools/` —— 工具子包：`PypiStats` 查询 PyPI 包下载量（周 / 月 / 近 180 天，数据来自 pypistats.org，`__init__.py` re-export，`from pten.tools import PypiStats`）；`Jev` 调用 TypeSafe AI 的 jev 模型（System One API：state + Choice/Score/Noul 结构化问题 → 类型化答案，`from pten.tools.jev import Jev, Choice, Score, Noul`）。配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（base_url/model 缺省走 `https://api.typesafe.ai` / `jev-latest`，api_key 另支持 `TYPESAFE_API_KEY` 环境变量）；代理解析顺序：显式参数 > `[jev] proxy` > 全局 `[proxies]` 段（优先 https 键，缺则 http 键），解析出代理时经 `httpx2.Client(proxy=...)` 注入给 SDK 的 `http_client`，未配置则不干预 SDK 默认客户端。
 - `wwcrypt.py` —— 回调消息加解密 `WXBizMsgCrypt`（`VerifyURL` / `DecryptMsg` / `EncryptMsg`），vendored 自 [weworkapi_python](https://github.com/sbzhu/weworkapi_python)，几乎零内部依赖
 - `__init__.py` —— 包入口：`import pten` 即触发 `setup_logging()`，初始化全包共用的 `logger`（详见第 8 节）
 

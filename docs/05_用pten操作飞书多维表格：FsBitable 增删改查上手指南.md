@@ -30,7 +30,7 @@
 pten 主页：[GitHub](https://github.com/bendell02/pten)（[Gitee 镜像](https://gitee.com/bendell02/pten)）。本功能自 v0.4.9 起发布，建议直接用 v0.4.11+（带 `FsFieldType` 与配置查找链）：
 
 ```bash
-pip install -U pten  # >= 0.4.11，要求 Python 3.8+
+pip install -U pten  # >= 0.4.11（v0.4.18 起要求 Python 3.10+，更早版本 3.8+）
 ```
 
 也可以 clone 仓库后源码安装：`pip install -e .`。

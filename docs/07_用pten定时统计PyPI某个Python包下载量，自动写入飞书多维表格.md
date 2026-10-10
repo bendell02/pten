@@ -24,7 +24,7 @@ pten 是一个封装飞书与企业微信 API 的 Python 工具库，覆盖机�
 - Gitee 镜像：<https://gitee.com/bendell02/pten>
 - PyPI 项目页：<https://pypi.org/project/pten/>
 
-安装（要求 Python 3.8+）：
+安装（v0.4.18 起要求 Python 3.10+，更早版本 3.8+）：
 
 ```bash
 pip install -U pten
@@ -343,5 +343,5 @@ sender.send_card(title="pten 下载量日报", content=f"本周 {downloads_week}
 ## 7. 小结
 
 - 三个零件各管一段：`PypiStats` 把限流、退避、缓存这些脏活挡掉，`FsBitable` 负责写入前的本地校验与服务端交互，apscheduler 负责定时；
-- 全部能力出自 `pip install -U pten`（v0.4.13+，Python 3.8+）；
+- 全部能力出自 `pip install -U pten`（v0.4.13+；v0.4.18 起要求 Python 3.10+，更早版本 3.8+）；
 - 这套「定时拉数 → 本地校验 → 写多维表格」的骨架不限于下载量：CI 构建耗时、告警计数、每日天气……凡是能变成一行结构化数据的指标，都能照抄。

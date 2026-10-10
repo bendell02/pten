@@ -9,7 +9,7 @@
 ## 常用命令
 
 ```bash
-# 可编辑安装（拉取依赖：apscheduler、lunardate、openai、pycryptodome）
+# 可编辑安装（拉取依赖：apscheduler、httpx2、lunardate、openai、pycryptodome、requests、typesafe-sdk；要求 Python >= 3.10）
 pip install -e .
 # 测试依赖
 pip install "pytest>=3" "pytest-mock>=3"
@@ -37,7 +37,7 @@ pytest tests/test_wwapi.py -k jsapi
 本节的人类可读图文详版见 `docs/architecture.md`；架构有变化时两边需同步更新。
 
 ### 配置与状态 —— `keys.py`
-`Keys` 是其余所有模块唯一的配置依赖。它按查找链解析配置文件 —— 显式 `keys_filepath`（严格：文件缺失不回退）→ `PTEN_KEYS_FILE` 环境变量（严格）→ `./pten_keys.ini` → `~/.pten/pten_keys.ini`（后两级探测；两者都不存在时回落 `./pten_keys.ini`，保留旧的「初始化告警、get 时抛错」行为）—— 然后读取（`configparser`，节为 `ww` / `fs` / `globals` / `proxies` / `notice`，外加可选的 `[llm:<name>]` provider 节，由 `Keys.list_llm_providers()` 枚举；文件先按 UTF-8 读，失败回落本机编码以兼容老的 GBK 文件 —— `Keys._read_keys_file`），并持有 token/ticket 缓存：access token 和 corp/app jsapi ticket 持久化到 `pten_token.json`（与解析出的配置文件同目录，因此 `~/.pten` 配置的 token 不会散落到 CWD），键为 `ww_`/`fs_` + `sha1(凭证)`（WW 是 corpid+corpsecret，飞书是 app_id+app_secret），7200 秒过期；内存 access-token 缓存按同样方式键控，因此 WW 和飞书的 token 可共享一个 `Keys` 实例。`[fs]` 里可选的 `receive_id`/`receive_id_type`（`Keys.get_fs_receive_id*`）提供 `fs_messager.FsAppMsgSender` 的默认收件人。公开类接受 `keys_filepath=None`（触发查找链）加可选的 `keys: Keys`，以便跨模块注入共享的 `Keys` 实例（及其 token 缓存）。
+`Keys` 是其余所有模块唯一的配置依赖。它按查找链解析配置文件 —— 显式 `keys_filepath`（严格：文件缺失不回退）→ `PTEN_KEYS_FILE` 环境变量（严格）→ `./pten_keys.ini` → `~/.pten/pten_keys.ini`（后两级探测；两者都不存在时回落 `./pten_keys.ini`，保留旧的「初始化告警、get 时抛错」行为）—— 然后读取（`configparser`，节为 `ww` / `fs` / `globals` / `proxies` / `notice` / `jev`，外加可选的 `[llm:<name>]` provider 节，由 `Keys.list_llm_providers()` 枚举；文件先按 UTF-8 读，失败回落本机编码以兼容老的 GBK 文件 —— `Keys._read_keys_file`），并持有 token/ticket 缓存：access token 和 corp/app jsapi ticket 持久化到 `pten_token.json`（与解析出的配置文件同目录，因此 `~/.pten` 配置的 token 不会散落到 CWD），键为 `ww_`/`fs_` + `sha1(凭证)`（WW 是 corpid+corpsecret，飞书是 app_id+app_secret），7200 秒过期；内存 access-token 缓存按同样方式键控，因此 WW 和飞书的 token 可共享一个 `Keys` 实例。`[fs]` 里可选的 `receive_id`/`receive_id_type`（`Keys.get_fs_receive_id*`）提供 `fs_messager.FsAppMsgSender` 的默认收件人。公开类接受 `keys_filepath=None`（触发查找链）加可选的 `keys: Keys`，以便跨模块注入共享的 `Keys` 实例（及其 token 缓存）。
 
 ### 共享底座 —— `base_api.py`
 `base_api.AbstractApi` 持有企业微信与飞书共用的 HTTP 管道：`http_call` 分发（POST/GET/POST_FILE/DELETE/PUT —— DELETE 像 GET 一样把查询参数经 `_append_args` 拼进 URL；PUT 像 POST 一样把请求体放在 `args` 里）、URL 构造（`_make_url`、`_append_args`）、token 替换（`_append_token`）、厂商请求头（`_get_headers(url)` 钩子 —— 默认为空，飞书模块重写它以添加 `Content-Type`/`Authorization`；`_post_file` 会摘掉 `Content-Type`，让 requests 自行生成 multipart boundary）、响应检查（`_check_response` → 成功码不为 `0` 时抛 `ApiException`）以及 token 过期重试（最多 3 次）。模块级的 `make_token_key(prefix, *credentials)` 帮助函数构造两家厂商持久化的 `ww_`/`fs_` token 缓存键。各厂商模块继承它并设置类属性：`BASE_URL`；`RESPONSE_CODE_FIELD`/`RESPONSE_MSG_FIELD`（WW 是 `errcode`/`errmsg`，飞书是 `code`/`msg`）；`TOKEN_PLACEHOLDERS` —— 有序的 `(占位符, getter 名)` 元组，更长/更具体的占位符必须排前面（如 `SUITE_ACCESS_TOKEN` 在 `ACCESS_TOKEN` 之前，因为前者包含后者；`_append_token`/`_refresh_token` 取第一个匹配）；以及 `TOKEN_EXPIRED_CODES`（飞书 webhook 基类为空，刷新在那里是 no-op）。`_debug_url` 钩子让 WW 在 debug 模式追加 `&debug=1`。
@@ -57,7 +57,7 @@ pytest tests/test_wwapi.py -k jsapi
 - `wwcrypt.py` —— `WXBizMsgCrypt`（VerifyURL / DecryptMsg / EncryptMsg）做回调消息加解密。Vendored 自 `weworkapi_python`。
 - `utils.py` —— 包内公共工具函数（区别于 `tools/` 子包的对外工具），目前仅 `brief_for_log`：把消息体压成适合写日志的简述。
 - `notice.py` —— `Notice` 基类（默认 `report_func=print`）；`Birthday`（`lunardate` 农历 + 阳历，`apscheduler` 调度并自动排下一年，处理闰月）；`LLM`（通用 OpenAI 兼容 chat 客户端，接受 `base_url`/`api_key`/`model`；`provider="openai"` 时读 `[llm:openai]` 节（`base_url`/`api_key`/`model`），否则回落 `[notice]` 的 `llm_*`；显式参数始终优先于配置；取代 `Deepseek`）；`Deepseek`（仅 DeepSeek 的预设，OpenAI 客户端指向 DeepSeek base_url —— 已被 `LLM` 取代）；`Weather`（心知天气 seniverse API）。
-- `tools/` 工具子包：`pypi_stats.PypiStats` 查询 PyPI 包下载量（周/月/近180天）。
+- `tools/` 工具子包：`pypi_stats.PypiStats` 查询 PyPI 包下载量（周/月/近180天）；`jev.Jev` 调用 TypeSafe AI 的 jev 模型（System One API，state + Choice/Score/Noul 结构化问题），配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（api_key 另支持 `TYPESAFE_API_KEY` 环境变量；代理解析顺序：显式参数 > `[jev] proxy` > `[proxies]` 段，经 `httpx2.Client(proxy=...)` 注入）。
 
 ### 日志
 导入 `pten`（即各模块的 `from . import logger`）会执行 `src/pten/__init__.py`，配置一个具名 `logger`：彩色控制台 handler 加 30MB 滚动的 `pten.log` 文件 handler。包内代码用这个 `logger`，不用 `print`。

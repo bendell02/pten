@@ -432,6 +432,7 @@ response = api.http_call(
 - [用 pten 操作飞书多维表格：FsBitable 增删改查上手指南](docs/05_用pten操作飞书多维表格：FsBitable%20增删改查上手指南.md)
 - [pten 配置文件查找顺序：环境变量、当前目录、用户主目录](docs/06_pten配置文件查找顺序：环境变量、当前目录、用户主目录.md)
 - [用 pten 定时统计 PyPI 某个Python包下载量，自动写入飞书多维表格](docs/07_用pten定时统计PyPI某个Python包下载量，自动写入飞书多维表格.md)
+- [用 pten 调用 TypeSafe-jev 模型做结构化决策](docs/08_用pten调用TypeSafe-jev模型做结构化决策.md)
 
-各个模块可运行的最小示例代码见 `examples/` 目录（按 `ww/`、`fs/`、`notice/` 分组），
+各个模块可运行的最小示例代码见 `examples/` 目录（按 `ww/`、`fs/`、`notice/`、`tools/` 分组），
 运行前提与所需配置见 [examples/README.md](examples/README.md)。

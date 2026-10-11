@@ -57,7 +57,7 @@ pytest tests/test_wwapi.py -k jsapi
 - `wwcrypt.py` —— `WXBizMsgCrypt`（VerifyURL / DecryptMsg / EncryptMsg）做回调消息加解密。Vendored 自 `weworkapi_python`。
 - `utils.py` —— 包内公共工具函数（区别于 `tools/` 子包的对外工具），目前仅 `brief_for_log`：把消息体压成适合写日志的简述。
 - `notice.py` —— `Notice` 基类（默认 `report_func=print`）；`Birthday`（`lunardate` 农历 + 阳历，`apscheduler` 调度并自动排下一年，处理闰月）；`LLM`（通用 OpenAI 兼容 chat 客户端，接受 `base_url`/`api_key`/`model`；`provider="openai"` 时读 `[llm:openai]` 节（`base_url`/`api_key`/`model`），否则回落 `[notice]` 的 `llm_*`；显式参数始终优先于配置；取代 `Deepseek`）；`Deepseek`（仅 DeepSeek 的预设，OpenAI 客户端指向 DeepSeek base_url —— 已被 `LLM` 取代）；`Weather`（心知天气 seniverse API）。
-- `tools/` 工具子包：`pypi_stats.PypiStats` 查询 PyPI 包下载量（周/月/近180天）；`jev.Jev` 调用 TypeSafe AI 的 jev 模型（System One API，state + Choice/Score/Noul 结构化问题），配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（api_key 另支持 `TYPESAFE_API_KEY` 环境变量；代理解析顺序：显式参数 > `[jev] proxy` > `[proxies]` 段，经 `httpx2.Client(proxy=...)` 注入）。
+- `tools/` 工具子包：`pypi_stats.PypiStats` 查询 PyPI 包下载量（周/月/近180天）；`jev.Jev` 调用 TypeSafe AI 的 jev 模型（System One API，state + Choice/Score/Noul 结构化问题），配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（api_key 另支持 `TYPESAFE_API_KEY` 环境变量；代理解析顺序：显式参数 > `[jev] proxy` > `[proxies]` 段，经 `httpx2.Client(proxy=...)` 注入）；`ai_gateway/` 子包是轻量级 LLM 凭证网关，复用 `wwcrypt.WXBizMsgCrypt` 的 SHA1 签名 + AES-CBC 加解密保护传输，server（`server.py` FastAPI 单端点 `POST /credentials`，纯发证不代理流量，依赖经 `pip install pten[ai_gateway]` 的 fastapi/uvicorn extras）按 `client_id` 从 `ai_gateway_server.ini` 查表下发 `api_key/url/model/expire_at`，agent 用 `AIGatewayClient` 取凭证后直连 LLM provider（内存+磁盘缓存，网关不可达降级到未过期缓存），`AIGatewayLLM` 是 OpenAI 兼容一行调用的薄便捷层。
 
 ### 日志
 导入 `pten`（即各模块的 `from . import logger`）会执行 `src/pten/__init__.py`，配置一个具名 `logger`：彩色控制台 handler 加 30MB 滚动的 `pten.log` 文件 handler。包内代码用这个 `logger`，不用 `print`。
@@ -67,4 +67,4 @@ pytest tests/test_wwapi.py -k jsapi
 - **新增 API 端点？** 往 `wwapi.py`（或 `fs_api.py`）相应的 `*_API_TYPE` 字典加一条，再在高层类（`Contact`、`Doc`、sender 等）上暴露一个薄方法：构建 `data` 字典并调 `self.api.http_call(...)`。保持邻方法的数据形状与文档链接注释风格。
 - **接口变更时同步示例：** `examples/` 每个文件只演示一个模块的最常用用法，改公开接口后更新对应示例；示例不以 `test_` 开头（pytest 不收集）。
 - **测试中的响应断言：** 企业微信 → `assert_ww_response`（检查 `errcode==0`、`errmsg=="ok"`）；飞书 → `assert_fs_response`（检查 `code==0`、`msg=="success"`）。两者都在 `tests/conftest.py`。
-- **`pten_keys.ini` 与 `pten_token.json` 已 gitignore**（真实密钥/缓存 token）。`pten_keys_example.ini` 是提交进库的假凭证 fixture，mock 测试用它。
+- **`pten_keys.ini` 与 `pten_token.json` 已 gitignore**（真实密钥/缓存 token）。`pten_keys_example.ini` 是提交进库的假凭证 fixture，mock 测试用它。`ai_gateway_server.ini`（网关真实 LLM key）与 `ai_gateway_cache.json`（客户端缓存凭证）同样 gitignore；`ai_gateway_server_example.ini` 是提交进库的假凭证 fixture。

@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.19 - 20261012
+1. feat(ai_gateway): agent的url、key和model_name的分发网关
+
 ## v0.4.18 - 20261010
 1. feat(tools): 添加jev模型的工具适配
 2. 注意：因新增依赖 typesafe-sdk，Python 最低版本由 3.8 提升至 3.10

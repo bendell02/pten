@@ -31,7 +31,13 @@ pten/
 │   ├── tools/             # 工具子包
 │   │   ├── __init__.py    # re-export 各工具类
 │   │   ├── pypi_stats.py  # PyPI 包下载量查询（pypistats.org）
-│   │   └── jev.py         # TypeSafe AI jev 模型调用（System One API）
+│   │   ├── jev.py         # TypeSafe AI jev 模型调用（System One API）
+│   │   └── ai_gateway/    # LLM 凭证网关（server + client）
+│   │       ├── __init__.py    # 导出客户端类（不 import server）
+│   │       ├── protocol.py    # 信封解析 + 密钥屏蔽（叶模块）
+│   │       ├── issuer.py      # 服务端发证纯逻辑 + 配置加载
+│   │       ├── server.py      # FastAPI HTTP 层（create_app 工厂）
+│   │       └── client.py      # AIGatewayClient + AIGatewayLLM
 │   ├── utils.py           # 公共工具函数（如 brief_for_log，供包内各模块共享）
 │   └── wwcrypt.py         # 回调消息加解密（vendored）
 ├── tests/                 # pytest 测试（conftest.py 会把 src/ 加入 sys.path）
@@ -71,6 +77,7 @@ pten/
   · utils.py      brief_for_log 等公共工具（供高层 sender 共享，不依赖 keys/base_api）
   · notice.py     Notice / Birthday / LLM / Deepseek / Weather
   · tools/        PypiStats（PyPI 下载量查询）、Jev（TypeSafe AI jev 模型）等工具
+  · tools/ai_gateway/  LLM 凭证网关（复用 wwcrypt 信封；详见 §4）
   · wwcrypt.py    WXBizMsgCrypt（回调加解密，vendored 自 weworkapi_python）
   · __init__.py   logger 初始化（import pten 即触发）
 ```
@@ -141,7 +148,7 @@ pten/
 ### 4.5 独立模块
 
 - `notice.py` —— 不碰厂商 API 的提醒助手：`Notice`（基类，`report_func` 缺省 `print`，把通知抽象成「条件满足则上报」）；`Birthday`（`lunardate` 农历 + 阳历生日，`apscheduler` 调度、跨年自动排下一轮、处理闰月）；`LLM`（OpenAI 兼容 chat 客户端，`[llm:<name>]` 节或 `[notice] llm_*` 取配置，显式参数最高）；`Deepseek`（DeepSeek 预设，已被 `LLM` 取代）；`Weather`（心知天气 API）
-- `tools/` —— 工具子包：`PypiStats` 查询 PyPI 包下载量（周 / 月 / 近 180 天，数据来自 pypistats.org，`__init__.py` re-export，`from pten.tools import PypiStats`）；`Jev` 调用 TypeSafe AI 的 jev 模型（System One API：state + Choice/Score/Noul 结构化问题 → 类型化答案，`from pten.tools.jev import Jev, Choice, Score, Noul`）。配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（base_url/model 缺省走 `https://api.typesafe.ai` / `jev-latest`，api_key 另支持 `TYPESAFE_API_KEY` 环境变量）；代理解析顺序：显式参数 > `[jev] proxy` > 全局 `[proxies]` 段（优先 https 键，缺则 http 键），解析出代理时经 `httpx2.Client(proxy=...)` 注入给 SDK 的 `http_client`，未配置则不干预 SDK 默认客户端。
+- `tools/` —— 工具子包：`PypiStats` 查询 PyPI 包下载量（周 / 月 / 近 180 天，数据来自 pypistats.org，`__init__.py` re-export，`from pten.tools import PypiStats`）；`Jev` 调用 TypeSafe AI 的 jev 模型（System One API：state + Choice/Score/Noul 结构化问题 → 类型化答案，`from pten.tools.jev import Jev, Choice, Score, Noul`）。配置解析顺序：显式参数 > `[jev]` 段 > SDK 默认值（base_url/model 缺省走 `https://api.typesafe.ai` / `jev-latest`，api_key 另支持 `TYPESAFE_API_KEY` 环境变量）；代理解析顺序：显式参数 > `[jev] proxy` > 全局 `[proxies]` 段（优先 https 键，缺则 http 键），解析出代理时经 `httpx2.Client(proxy=...)` 注入给 SDK 的 `http_client`，未配置则不干预 SDK 默认客户端。`ai_gateway/` 子包是轻量级 LLM 凭证网关，解决 agent 应用的 API key 分发与 model_name 过期问题——网关集中持有 LLM 凭证，agent 启动时现取 `api_key/url/model/expire_at` 后直连 LLM provider，网关只发证不代理流量，无需分布式 / 负载均衡。传输复用 `wwcrypt.WXBizMsgCrypt` 的 SHA1 签名 + AES-CBC 加解密：请求与响应都是 `EncryptMsg` 产出的整段 XML 信封（`Encrypt/MsgSignature/TimeStamp/Nonce`）作为 POST body 自包含传输，收方 `parse_envelope` 取四字段喂给 `DecryptMsg`。全网关共享一套 `token/aes_key/receive_id`（`receive_id` 作共享密钥完整性校验），per-agent 身份 = 加密体内的 `client_id`；`timestamp` 参与签名（篡改即破签名），但服务端不校验时间窗，避免两端系统时钟不一致导致无法取凭证。模块分工：`protocol.py`（信封解析 + `mask_api_key`，纯 stdlib 叶模块）；`issuer.py`（`CredentialIssuer.issue` 解密→查表→加密 + `load_config` 从 `ai_gateway_server.ini` 读 `[gateway]` 共享密钥与 `[client:<name>]` 凭证表，不 import fastapi）；`server.py`（FastAPI `create_app` 工厂，单端点 `POST /credentials`，`GatewayError(code,msg,status)` 映射 4xx/5xx，请求时按 ini mtime 懒重载（改 ini 即时生效、重载失败保留旧配置），依赖经 `pip install pten[ai_gateway]` 的 fastapi/uvicorn extras）；`client.py`（`AIGatewayClient` 取三元组，内存+磁盘缓存——键 `gw_<sha1(client_id)>` 写入 keys 文件同目录的 `ai_gateway_cache.json`，网关不可达降级到未过期缓存、4xx 不降级；`AIGatewayLLM` 是 OpenAI 兼容一行调用的薄便捷层，构造时自动取凭证建 `openai.OpenAI`）。`import pten.tools` 只加载客户端，不触发 server/fastapi。
 - `wwcrypt.py` —— 回调消息加解密 `WXBizMsgCrypt`（`VerifyURL` / `DecryptMsg` / `EncryptMsg`），vendored 自 [weworkapi_python](https://github.com/sbzhu/weworkapi_python)，几乎零内部依赖
 - `__init__.py` —— 包入口：`import pten` 即触发 `setup_logging()`，初始化全包共用的 `logger`（详见第 8 节）
 

@@ -5,6 +5,8 @@ third-party_untrack/
 *jsapi_ticket.json
 pten_keys.ini
 pten_token.json
+ai_gateway_server.ini
+ai_gateway_cache.json
 stat_for_py.py
 .claude
 CLAUDE.local.md

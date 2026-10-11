@@ -13,7 +13,7 @@ import random
 import socket
 import struct
 import time
-import xml.etree.cElementTree as ET
+import xml.etree.ElementTree as ET
 
 from Crypto.Cipher import AES
 

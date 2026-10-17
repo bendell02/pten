@@ -9,7 +9,7 @@ pten.fs_bitable
 
 from enum import IntEnum
 
-from .fs_api import CORP_API_TYPE, FsCorpApi
+from .fs_api import CORP_API_TYPE, FsCorpApi, fetch_all_pages, sub_url
 from .keys import Keys
 
 
@@ -81,13 +81,6 @@ class FsBitable:
         self.keys = keys if keys else Keys(keys_filepath)
         self.api = FsCorpApi(keys_filepath, keys=keys)
 
-    @staticmethod
-    def _sub(url, **mapping):
-        """把 URL 里的路径占位符（APP_TOKEN/TABLE_ID/RECORD_ID）替换为实参。"""
-        for placeholder, value in mapping.items():
-            url = url.replace(placeholder, value)
-        return url
-
     def create_app(self, name=None, folder_token=None, time_zone=None, **kwargs):
         """创建一个多维表格（含一张空数据表）。
 
@@ -130,42 +123,8 @@ class FsBitable:
             table["fields"] = fields
         table.update(kwargs)
         shortUrl, method = CORP_API_TYPE["BITABLE_TABLE_CREATE"]
-        url = self._sub(shortUrl, APP_TOKEN=app_token)
+        url = sub_url(shortUrl, APP_TOKEN=app_token)
         return self.api.http_call([url, method], {"table": table})
-
-    def _fetch_all_pages(self, fetch_page, page_size, page_token, default_page_size):
-        """自动翻页聚合全部 items，返回与单页响应同形的 dict（items 为全量、has_more=False）。
-
-        :param fetch_page: 取一页的回调，形如 ``fetch_page(page_size, page_token) -> 响应 dict``
-        :param page_size: 分页大小；未显式指定时取 default_page_size（最小化请求次数）
-        :param page_token: 起始分页标记，缺省从头遍历
-        :param default_page_size: page_size 未显式指定时的缺省值，取该端点的分页上限
-        """
-        if page_size is None:
-            page_size = default_page_size
-        items = []
-        while True:
-            res = fetch_page(page_size, page_token)
-            items.extend(res["data"].get("items", []))
-            if not res["data"].get("has_more"):
-                break
-            next_token = res["data"].get("page_token")
-            # has_more=True 但未返回有效的下一页 token（或 token 未变化）时，
-            # 继续翻只会重复拉同一页 → 死循环，主动中断
-            if not next_token or next_token == page_token:
-                break
-            page_token = next_token
-        # 聚合后构造与单页响应同形的 dict：items 为全量数据，has_more=False 表示
-        # 已拉完，total 为实际返回的条数
-        return {
-            "code": 0,
-            "msg": "success",
-            "data": {
-                "items": items,
-                "has_more": False,
-                "total": len(items),
-            },
-        }
 
     def list_tables(
         self, app_token, fetch_all=True, page_size=None, page_token=None, **kwargs
@@ -187,7 +146,7 @@ class FsBitable:
 
         def get_page(page_size, page_token):
             shortUrl, method = CORP_API_TYPE["BITABLE_TABLE_LIST"]
-            url = self._sub(shortUrl, APP_TOKEN=app_token)
+            url = sub_url(shortUrl, APP_TOKEN=app_token)
             args = {}
             if page_size is not None:
                 args["page_size"] = str(page_size)
@@ -199,7 +158,7 @@ class FsBitable:
         if not fetch_all:
             # 单页模式：返回原始响应，翻页控制权在调用方
             return get_page(page_size, page_token)
-        return self._fetch_all_pages(get_page, page_size, page_token, 100)
+        return fetch_all_pages(get_page, page_size, page_token, 100)
 
     def list_fields(
         self,
@@ -233,7 +192,7 @@ class FsBitable:
 
         def get_page(page_size, page_token):
             shortUrl, method = CORP_API_TYPE["BITABLE_FIELD_LIST"]
-            url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+            url = sub_url(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
             args = {}
             if page_size is not None:
                 args["page_size"] = str(page_size)
@@ -250,7 +209,7 @@ class FsBitable:
         if not fetch_all:
             # 单页模式：返回原始响应，翻页控制权在调用方
             return get_page(page_size, page_token)
-        return self._fetch_all_pages(get_page, page_size, page_token, 100)
+        return fetch_all_pages(get_page, page_size, page_token, 100)
 
     @staticmethod
     def _check_value_type(name, ftype, value):
@@ -336,7 +295,7 @@ class FsBitable:
         https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table/delete
         """
         shortUrl, method = CORP_API_TYPE["BITABLE_TABLE_DELETE"]
-        url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+        url = sub_url(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
         # DELETE 无请求体；kwargs 留作可能的查询参数扩展
         return self.api.http_call([url, method], kwargs)
 
@@ -365,7 +324,7 @@ class FsBitable:
         https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/create
         """
         shortUrl, method = CORP_API_TYPE["BITABLE_RECORD_CREATE"]
-        url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+        url = sub_url(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
         # POST 的 args 进请求体，查询参数必须走 URL；复用 _append_args 拼 ?/&
         query = {}
         if user_id_type:
@@ -393,7 +352,7 @@ class FsBitable:
         https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/delete
         """
         shortUrl, method = CORP_API_TYPE["BITABLE_RECORD_DELETE"]
-        url = self._sub(
+        url = sub_url(
             shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id, RECORD_ID=record_id
         )
         args = {}
@@ -425,7 +384,7 @@ class FsBitable:
         https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-record/update
         """
         shortUrl, method = CORP_API_TYPE["BITABLE_RECORD_UPDATE"]
-        url = self._sub(
+        url = sub_url(
             shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id, RECORD_ID=record_id
         )
         # PUT 的 args 进请求体（同 POST），查询参数必须走 URL
@@ -483,7 +442,7 @@ class FsBitable:
         # 复用 _append_args 拼 ?/&（同 create_record）
         def get_page(page_size, page_token):
             shortUrl, method = CORP_API_TYPE["BITABLE_RECORD_SEARCH"]
-            url = self._sub(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
+            url = sub_url(shortUrl, APP_TOKEN=app_token, TABLE_ID=table_id)
             query = {}
             if user_id_type:
                 query["user_id_type"] = user_id_type
@@ -510,4 +469,4 @@ class FsBitable:
         if not fetch_all:
             # 单页模式：返回原始响应，翻页控制权在调用方
             return get_page(page_size, page_token)
-        return self._fetch_all_pages(get_page, page_size, page_token, 500)
+        return fetch_all_pages(get_page, page_size, page_token, 500)

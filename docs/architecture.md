@@ -27,6 +27,7 @@ pten/
 │   ├── wwcontact.py       # 企业微信通讯录
 │   ├── wwdoc.py           # 企业微信智能文档 / 表格 / 收集表
 │   ├── fs_bitable.py      # 飞书多维表格
+│   ├── fs_doc.py          # 飞书文档（docx）
 │   ├── notice.py          # 提醒助手（生日 / 天气 / LLM）
 │   ├── tools/             # 工具子包
 │   │   ├── __init__.py    # re-export 各工具类
@@ -59,6 +60,7 @@ pten/
   · wwcontact.py    Contact
   · wwdoc.py        Doc
   · fs_bitable.py   FsBitable / FsFieldType
+  · fs_doc.py       FsDoc
         │  组合：高层持有一个厂商 API 客户端实例
         ▼
 厂商适配层    只提供「配置」：继承共享底座，设类属性 + 维护端点字典
@@ -100,7 +102,7 @@ pten/
 
 `AbstractApi` 是企业微信、飞书两条线共用的 HTTP 管道，一个方法串起所有请求：`http_call(urlType, args)`。它负责：
 
-- **分发**：按端点的 method 字段路由到 `POST` / `GET` / `POST_FILE` / `DELETE` / `PUT` 五种执行路径——GET 和 DELETE 把 `args` 拼成 query string（`_append_args`），POST 和 PUT 把 `args` 作为 JSON 请求体，POST_FILE 走 multipart 上传（`_post_file` 会摘掉 `Content-Type`，让 requests 自动生成 boundary）
+- **分发**：按端点的 method 字段路由到 `POST` / `GET` / `POST_FILE` / `DELETE` / `PUT` / `DELETE_BODY` / `PATCH` 七种执行路径——GET 和 DELETE 把 `args` 拼成 query string（`_append_args`），POST、PUT、PATCH 和 DELETE_BODY 把 `args` 作为 JSON 请求体（PATCH 用于飞书 docx「更新块」，DELETE_BODY 用于飞书 docx「删除块」这类带请求体的 DELETE），POST_FILE 走 multipart 上传（`_post_file` 会摘掉 `Content-Type`，让 requests 自动生成 boundary；查询串的 type 参数可选——企业微信媒体上传传 type，飞书素材上传走纯表单、字段混排在 `files` 里）
 - **URL 构造**：`_make_url` = `BASE_URL` + shortUrl
 - **token 惰性替换**：`_append_token` 按 `TOKEN_PLACEHOLDERS` 声明的顺序找第一个命中的占位符，调对应 getter 替换进 URL
 - **厂商请求头钩子**：`_get_headers(url)` 默认返回空 dict，由厂商子类按需重写（飞书在这里注入 `Authorization: Bearer`）
@@ -138,12 +140,13 @@ pten/
 | 模块 | 类 | 职责要点 |
 |---|---|---|
 | `fs_messager.py` | `FsMsgSender` / `FsBotMsgSender` / `FsAppMsgSender` | webhook 文本/卡片；自建应用按 `receive_id` + `receive_id_type`（open_id/user_id/union_id/email/chat_id）发 `im/v1/messages`，`content` 按 im API 序列化为 JSON；省略 `receive_id` 时回退 `[fs]` 配置的默认收件人 |
-| `fs_bitable.py` | `FsBitable` / `FsFieldType` | 多维表格应用/数据表/记录的增删改查、列出字段（`list_fields`）、按条件查询记录（`search_records`，`filter`/`sort` 等走请求体、`user_id_type` 与分页参数走 URL）；`list_tables` / `list_fields` / `search_records` 三个列表接口共享 `_fetch_all_pages` 翻页聚合（默认 `fetch_all=True` 聚合并返回响应 dict——data.items 为全量、缺省 `page_size` 取端点上限，`fetch_all=False` 单页返回原始响应）；`FsFieldType` 是字段类型枚举（`IntEnum`，与裸数字等价）；路径占位符由 `_sub` 替换；`validate_record_fields` 拉取（聚合版 `list_fields`）字段清单后本地预检未知字段、只读/系统字段及标量字段取值形状（数字/日期/复选框，日期须传毫秒时间戳而非字符串） |
+| `fs_bitable.py` | `FsBitable` / `FsFieldType` | 多维表格应用/数据表/记录的增删改查、列出字段（`list_fields`）、按条件查询记录（`search_records`，`filter`/`sort` 等走请求体、`user_id_type` 与分页参数走 URL）；`list_tables` / `list_fields` / `search_records` 三个列表接口共享 `fs_api.fetch_all_pages` 翻页聚合（与 `fs_doc.list_blocks` 共用；默认 `fetch_all=True` 聚合并返回响应 dict——data.items 为全量、缺省 `page_size` 取端点上限，`fetch_all=False` 单页返回原始响应）；`FsFieldType` 是字段类型枚举（`IntEnum`，与裸数字等价）；路径占位符由 `sub_url` 替换；`validate_record_fields` 拉取（聚合版 `list_fields`）字段清单后本地预检未知字段、只读/系统字段及标量字段取值形状（数字/日期/复选框，日期须传毫秒时间戳而非字符串） |
+| `fs_doc.py` | `FsDoc` | 飞书文档（docx）：创建/获取文档、纯文本内容（`get_raw_content`，段落以 `\n` 分隔）、全部块（`list_blocks`，共享 `fs_api.fetch_all_pages` 聚合，根 page 块的 children 即顶层块顺序）；`append_text` 把一段纯文本作为一个文本块插到文档顶层末尾（多行 `\n` 为软换行）；`append_markdown` 走 convert 全局端点转块 + 「创建嵌套块」对根块两步插入（剥离 Table 块只读字段 merge_info、超 1000 块按顶层子树分批——单棵子树自身超限、如超大表格时抛 `ValueError`；图片块插入后自动回填素材——下载/读取 → drive `upload_all` 上传 → PATCH `replace_image`，单张失败仅告警），`append_markdown_from_file` 读文件后走同一流程；`delete_last_blocks(count=1)` 删除末尾 count 个顶层块（任意类型、连带子树，按 children 区间 `[len-count, len)` 左闭右开一次删除，走 `DELETE_BODY` 分发，不足 count 时全删），无顶层块时不发请求返回 None。文档根块的 block_id 即 document_id，路径占位符 `DOCUMENT_ID`/`BLOCK_ID` 由 `sub_url` 替换 |
 | `wwmessager.py` | `MsgSender` / `BotMsgSender` / `AppMsgSender` | 机器人 webhook 发送（`Queue` 自限速每分钟 20 条）；应用消息按有无 `chatid` 走 `appchat/send`（群）或 `message/send`（`touser`/`toparty`/`totag` 缺省 `@all`）；媒体上传经 `_get_media_id` |
 | `wwcontact.py` | `Contact` | 通讯录（用户/部门/标签），用 `[ww] contact_sync_secret` 而非 `app_secret` 建 `CorpApi` |
 | `wwdoc.py` | `Doc` | 智能文档 / 表格 / 收集表端点 |
 
-两类占位符的分工在这里体现得最清楚（以飞书为例）：**token 类**（`WEBHOOK_KEY`，以及 WW 的 `ACCESS_TOKEN` 等）由底座自动替换；**路径/参数类**（`MESSAGE_SEND` 的 `RECEIVE_ID_TYPE` 由 `_send` 替换、多维表格的 `APP_TOKEN`/`TABLE_ID`/`RECORD_ID` 由 `_sub` 替换）由高层调用方在 `http_call` 之前替换成实参。
+两类占位符的分工在这里体现得最清楚（以飞书为例）：**token 类**（`WEBHOOK_KEY`，以及 WW 的 `ACCESS_TOKEN` 等）由底座自动替换；**路径/参数类**（`MESSAGE_SEND` 的 `RECEIVE_ID_TYPE` 由 `_send` 替换、多维表格的 `APP_TOKEN`/`TABLE_ID`/`RECORD_ID` 与文档的 `DOCUMENT_ID`/`BLOCK_ID` 由 `sub_url` 替换）由高层调用方在 `http_call` 之前替换成实参。
 
 ### 4.5 独立模块
 
@@ -167,7 +170,8 @@ send_text("hello")
             # CORP_API_TYPE["MESSAGE_SEND"]
 
             ─── 1–7 构成一次尝试，整体包在最多 3 轮的重试循环里 ───
-            1. 分发：POST → _http_post（GET/DELETE 把参数拼进 URL；POST_FILE 走 multipart）
+            1. 分发：POST → _http_post（GET/DELETE 把参数拼进 URL；POST_FILE 走
+               multipart；DELETE_BODY 带 JSON 请求体）
             2. _make_url：BASE_URL + shortUrl
             3. _append_token：按 TOKEN_PLACEHOLDERS 找命中占位符，调 getter 替换进 URL
                  · 飞书 TOKEN_PLACEHOLDERS 为空 → 本步 no-op
@@ -213,7 +217,7 @@ token（以及 jsapi ticket）的存取只发生在 `Keys` 里，API 子类通�
 
 ```python
 def get_record(self, app_token, table_id, record_id, **kwargs):
-    url = self._sub(
+    url = sub_url(
         CORP_API_TYPE["BITABLE_RECORD_GET"][0],
         APP_TOKEN=app_token, TABLE_ID=table_id, RECORD_ID=record_id,
     )

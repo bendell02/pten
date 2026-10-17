@@ -104,6 +104,14 @@ class AbstractApi(object):
             elif "PUT" == method:
                 url = self._make_url(shortUrl)
                 response = self._http_put(url, args)
+            elif "DELETE_BODY" == method:
+                # 带请求体的 DELETE（如飞书 docx 删除块）：args 作 JSON 体，无查询参数
+                url = self._make_url(shortUrl)
+                response = self._http_delete_body(url, args)
+            elif "PATCH" == method:
+                # PATCH 像 PUT 一样带 JSON 请求体（如飞书 docx 更新块）
+                url = self._make_url(shortUrl)
+                response = self._http_patch(url, args)
             else:
                 raise ApiException(-1, "unknown method type")
 
@@ -195,7 +203,8 @@ class AbstractApi(object):
             realUrl, headers=self._get_headers(realUrl), proxies=self.proxies
         ).json()
 
-    def _http_put(self, url, args):
+    def _http_request_body(self, sender, url, args):
+        """PUT / PATCH / DELETE_BODY 共用：args JSON 编码为请求体随请求发送。"""
         realUrl = self._append_token(url)
 
         if self.DEBUG_MODE is True:
@@ -204,22 +213,36 @@ class AbstractApi(object):
             full_url = f"{realUrl}?{query_string}"
             logger.debug(full_url)
 
-        return requests.put(
+        return sender(
             realUrl,
             data=json.dumps(args, ensure_ascii=False).encode("utf-8"),
             headers=self._get_headers(realUrl),
             proxies=self.proxies,
         ).json()
 
+    def _http_put(self, url, args):
+        return self._http_request_body(requests.put, url, args)
+
+    def _http_delete_body(self, url, args):
+        # 带请求体的 DELETE（如飞书 docx 删除块）：args 作 JSON 体，无查询参数
+        return self._http_request_body(requests.delete, url, args)
+
+    def _http_patch(self, url, args):
+        # PATCH 像 PUT 一样带 JSON 请求体（如飞书 docx 更新块）
+        return self._http_request_body(requests.patch, url, args)
+
     def _post_file(self, url, args):
         realUrl = self._append_token(url)
 
         type = args.get("type", None)
         files = args.get("files", None)
-        if type is None or files is None:
-            raise ApiException(-1, "type is None or file is None")
+        if files is None:
+            raise ApiException(-1, "file is None")
 
-        realUrl = self._append_args(realUrl, {"type": type})
+        # 企业微信的媒体上传要求 type 拼进查询串；不传 type 则纯 multipart 表单
+        # （飞书素材上传把 parent_type/parent_node 等作为表单字段放进 files）
+        if type is not None:
+            realUrl = self._append_args(realUrl, {"type": type})
 
         headers = self._get_headers(realUrl)
         # multipart 的 Content-Type（含 boundary）由 requests 自动生成，不能手动指定

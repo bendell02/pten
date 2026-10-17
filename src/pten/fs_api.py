@@ -11,6 +11,52 @@ from .base_api import make_token_key
 from .keys import Keys
 
 
+def fetch_all_pages(fetch_page, page_size, page_token, default_page_size):
+    """自动翻页聚合全部 items，返回与单页响应同形的 dict（items 为全量、has_more=False）。
+
+    供飞书高层封装（fs_bitable / fs_doc）的列表接口共用。
+    :param fetch_page: 取一页的回调，形如 ``fetch_page(page_size, page_token) -> 响应 dict``
+    :param page_size: 分页大小；未显式指定时取 default_page_size（最小化请求次数）
+    :param page_token: 起始分页标记，缺省从头遍历
+    :param default_page_size: page_size 未显式指定时的缺省值，取该端点的分页上限
+    """
+    if page_size is None:
+        page_size = default_page_size
+    items = []
+    while True:
+        res = fetch_page(page_size, page_token)
+        items.extend(res["data"].get("items", []))
+        if not res["data"].get("has_more"):
+            break
+        next_token = res["data"].get("page_token")
+        # has_more=True 但未返回有效的下一页 token（或 token 未变化）时，
+        # 继续翻只会重复拉同一页 → 死循环，主动中断
+        if not next_token or next_token == page_token:
+            break
+        page_token = next_token
+    # 聚合后构造与单页响应同形的 dict：items 为全量数据，has_more=False 表示
+    # 已拉完，total 为实际返回的条数
+    return {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "items": items,
+            "has_more": False,
+            "total": len(items),
+        },
+    }
+
+
+def sub_url(url, **mapping):
+    """把 URL 里的路径占位符替换为实参。
+
+    供飞书高层封装（fs_bitable / fs_doc）共用，以关键字传「占位符名 → 实参」。
+    """
+    for placeholder, value in mapping.items():
+        url = url.replace(placeholder, value)
+    return url
+
+
 class FsAbstractApi(base_api.AbstractApi):
     """飞书 API 基类，为共享的 HTTP 管道提供厂商配置。
 
@@ -50,7 +96,7 @@ class FsBotApi(FsAbstractApi):
 CORP_API_TYPE = {
     "GET_TENANT_ACCESS_TOKEN": ["auth/v3/tenant_access_token/internal", "POST"],
     "MESSAGE_SEND": ["im/v1/messages?receive_id_type=RECEIVE_ID_TYPE", "POST"],
-    # —— 多维表格（Base）读写操作 ——
+    # —— 多维表格操作 ——
     "BITABLE_APP_CREATE": ["bitable/v1/apps", "POST"],
     "BITABLE_TABLE_LIST": ["bitable/v1/apps/APP_TOKEN/tables", "GET"],
     "BITABLE_FIELD_LIST": ["bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/fields", "GET"],
@@ -71,6 +117,26 @@ CORP_API_TYPE = {
     "BITABLE_RECORD_SEARCH": [
         "bitable/v1/apps/APP_TOKEN/tables/TABLE_ID/records/search",
         "POST",
+    ],
+    # —— 文档（docx）操作 ——
+    "DOC_CREATE": ["docx/v1/documents", "POST"],
+    "DOC_GET": ["docx/v1/documents/DOCUMENT_ID", "GET"],
+    "DOC_RAW_CONTENT": ["docx/v1/documents/DOCUMENT_ID/raw_content", "GET"],
+    "DOC_BLOCK_LIST": ["docx/v1/documents/DOCUMENT_ID/blocks", "GET"],
+    "DOC_BLOCK_CREATE": [
+        "docx/v1/documents/DOCUMENT_ID/blocks/BLOCK_ID/children",
+        "POST",
+    ],
+    "DOC_BLOCK_CREATE_NESTED": [
+        "docx/v1/documents/DOCUMENT_ID/blocks/BLOCK_ID/descendant",
+        "POST",
+    ],
+    "DOC_BLOCK_CONVERT": ["docx/v1/documents/blocks/convert", "POST"],
+    "DOC_BLOCK_PATCH": ["docx/v1/documents/DOCUMENT_ID/blocks/BLOCK_ID", "PATCH"],
+    "DOC_IMAGE_UPLOAD": ["drive/v1/medias/upload_all", "POST_FILE"],
+    "DOC_BLOCK_BATCH_DELETE": [
+        "docx/v1/documents/DOCUMENT_ID/blocks/BLOCK_ID/children/batch_delete",
+        "DELETE_BODY",
     ],
 }
 

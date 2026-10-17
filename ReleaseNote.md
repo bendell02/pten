@@ -2,6 +2,12 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.20 - 20261017
+1. feat(fs_doc): 飞书文档(docx)封装——创建/获取文档、追加文本与markdown到末尾、获取纯文本与块列表、删除末尾块
+2. feat(fs_doc): append_markdown_from_file 从 markdown 文件读取并追加到文档末尾
+3. fix(fs_doc): markdown 中的图片自动上传并回填到图片块（此前插入的是空占位块；单张失败仅告警不中断）
+4. feat(base_api): HTTP分发新增DELETE_BODY与PATCH（带JSON请求体的DELETE / 更新块）
+
 ## v0.4.19 - 20261012
 1. feat(ai_gateway): agent的url、key和model_name的分发网关
 

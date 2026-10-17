@@ -158,3 +158,54 @@ def test_tenant_api_error_response(mocker, fs_keys):
         api.refresh_access_token()
     assert exc_info.value.errCode == 10003
     assert exc_info.value.errMsg == "app not found"
+
+
+def test_tenant_api_delete_with_body(mocker, fs_keys):
+    api = FsCorpApi(keys=fs_keys)
+    fs_keys.save_access_token(api._token_key, "t-fake")
+    mock_delete = mocker.patch("requests.delete")
+    mock_delete.return_value.json.return_value = {
+        "code": 0,
+        "msg": "success",
+        "data": {"document_revision_id": 2},
+    }
+
+    response = api.http_call(
+        ["docx/v1/documents/doxcnA/blocks/doxcnA/children/batch_delete", "DELETE_BODY"],
+        {"start_index": 0, "end_index": 1},
+    )
+
+    assert_fs_response(response)
+    assert mock_delete.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/docx/v1/documents/doxcnA/"
+        "blocks/doxcnA/children/batch_delete"
+    )
+    # DELETE_BODY：args 序列化为 JSON 请求体，而非拼进查询串
+    body = json.loads(mock_delete.call_args.kwargs["data"])
+    assert body == {"start_index": 0, "end_index": 1}
+    headers = mock_delete.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer t-fake"
+    assert headers["Content-Type"] == "application/json; charset=utf-8"
+
+
+def test_tenant_api_patch(mocker, fs_keys):
+    api = FsCorpApi(keys=fs_keys)
+    fs_keys.save_access_token(api._token_key, "t-fake")
+    mock_patch = mocker.patch("requests.patch")
+    mock_patch.return_value.json.return_value = {"code": 0, "msg": "success", "data": {}}
+
+    response = api.http_call(
+        ["docx/v1/documents/doxcnA/blocks/doxcnB", "PATCH"],
+        {"replace_image": {"token": "boxcnFake1"}},
+    )
+
+    assert_fs_response(response)
+    assert mock_patch.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/docx/v1/documents/doxcnA/blocks/doxcnB"
+    )
+    # PATCH 与 PUT 同构：args 作为 JSON 请求体
+    body = json.loads(mock_patch.call_args.kwargs["data"])
+    assert body == {"replace_image": {"token": "boxcnFake1"}}
+    headers = mock_patch.call_args.kwargs["headers"]
+    assert headers["Authorization"] == "Bearer t-fake"
+    assert headers["Content-Type"] == "application/json; charset=utf-8"

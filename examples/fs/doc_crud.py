@@ -2,11 +2,14 @@
 
 运行前提：[fs] 配置 app_id、app_secret，且应用具备 docx:document 权限；
 append_markdown 的 convert 环节另需 docx:document.block:convert，带图片时
-素材上传另需 docs:document.media:upload 等任一上传权限。
+素材上传另需 docs:document.media:upload 等任一上传权限；list_folder_files
+另需 drive:drive / drive:drive:readonly / space:document:retrieve 任一权限。
 注意：本例会真实创建一篇文档并追加内容；结束时删除本例追加的部分块，
 文档本身保留（可在飞书云空间手动删除）。
 运行方式：python examples/fs/doc_crud.py
 """
+
+import json
 
 from pten.fs_doc import FsDoc
 
@@ -41,3 +44,7 @@ if __name__ == "__main__":
 
     # 7. 文档基本信息（revision_id 随编辑递增）
     print(doc.get_document(document_id))
+
+    # 8. 云空间根目录的文件清单（含上面创建的文档；仅当前层级，不递归）
+    folder_files = doc.list_folder_files()
+    print(json.dumps(folder_files, indent=4, ensure_ascii=False))

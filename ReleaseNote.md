@@ -2,6 +2,9 @@
 本文件记录 pten 各版本的变更情况。
 
 
+## v0.4.21 - 20261019
+1. feat(fs_doc): 增加获取文件夹中的文件清单功能
+
 ## v0.4.20 - 20261017
 1. feat(fs_doc): 飞书文档(docx)封装——创建/获取文档、追加文本与markdown到末尾、获取纯文本与块列表、删除末尾块
 2. feat(fs_doc): append_markdown_from_file 从 markdown 文件读取并追加到文档末尾

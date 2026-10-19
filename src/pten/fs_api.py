@@ -11,36 +11,45 @@ from .base_api import make_token_key
 from .keys import Keys
 
 
-def fetch_all_pages(fetch_page, page_size, page_token, default_page_size):
-    """自动翻页聚合全部 items，返回与单页响应同形的 dict（items 为全量、has_more=False）。
+def fetch_all_pages(
+    fetch_page,
+    page_size,
+    page_token,
+    default_page_size,
+    items_key="items",
+    token_key="page_token",
+):
+    """自动翻页聚合全部条目，返回与单页响应同形的 dict（条目列表为全量、has_more=False）。
 
     供飞书高层封装（fs_bitable / fs_doc）的列表接口共用。
     :param fetch_page: 取一页的回调，形如 ``fetch_page(page_size, page_token) -> 响应 dict``
     :param page_size: 分页大小；未显式指定时取 default_page_size（最小化请求次数）
     :param page_token: 起始分页标记，缺省从头遍历
     :param default_page_size: page_size 未显式指定时的缺省值，取该端点的分页上限
+    :param items_key: data 中条目列表的键名（默认 items，云空间文件夹清单为 files）
+    :param token_key: data 中下一页标记的键名（默认 page_token，文件夹清单为 next_page_token）
     """
     if page_size is None:
         page_size = default_page_size
     items = []
     while True:
         res = fetch_page(page_size, page_token)
-        items.extend(res["data"].get("items", []))
+        items.extend(res["data"].get(items_key, []))
         if not res["data"].get("has_more"):
             break
-        next_token = res["data"].get("page_token")
+        next_token = res["data"].get(token_key)
         # has_more=True 但未返回有效的下一页 token（或 token 未变化）时，
         # 继续翻只会重复拉同一页 → 死循环，主动中断
         if not next_token or next_token == page_token:
             break
         page_token = next_token
-    # 聚合后构造与单页响应同形的 dict：items 为全量数据，has_more=False 表示
+    # 聚合后构造与单页响应同形的 dict：条目列表为全量数据，has_more=False 表示
     # 已拉完，total 为实际返回的条数
     return {
         "code": 0,
         "msg": "success",
         "data": {
-            "items": items,
+            items_key: items,
             "has_more": False,
             "total": len(items),
         },
@@ -138,6 +147,8 @@ CORP_API_TYPE = {
         "docx/v1/documents/DOCUMENT_ID/blocks/BLOCK_ID/children/batch_delete",
         "DELETE_BODY",
     ],
+    # —— 云空间（drive）操作 ——
+    "FOLDER_FILE_LIST": ["drive/v1/files", "GET"],
 }
 
 

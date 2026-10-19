@@ -104,6 +104,19 @@ def _mock_block_page(items, has_more=False, page_token=None):
     }
 
 
+def _mock_file_page(files, has_more=False, next_page_token=None):
+    """构造 list_folder_files 的 mock 响应（默认单页、无更多）。"""
+    return {
+        "code": 0,
+        "msg": "success",
+        "data": {
+            "has_more": has_more,
+            "next_page_token": next_page_token,
+            "files": files,
+        },
+    }
+
+
 def test_list_blocks_fetch_all(mocker, fs_keys):
     doc = FsDoc(keys=fs_keys)
     doc.keys.save_access_token(doc.api._token_key, "t-fake")
@@ -163,6 +176,95 @@ def test_list_blocks_explicit_page_size_and_revision(mocker, fs_keys):
     url = mock_get.call_args.args[0]
     assert "page_size=100" in url
     assert "document_revision_id=3" in url
+
+
+def test_list_folder_files_fetch_all(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    # 两页：第一页 has_more=True 带 next_page_token，第二页 has_more=False
+    page1 = _mock_file_page(
+        [{"token": "doxcnA", "type": "docx", "name": "文档A"}],
+        has_more=True,
+        next_page_token="tok2",
+    )
+    page2 = _mock_file_page([{"token": "fldcnB", "type": "folder", "name": "文件夹B"}])
+    mock_get = mocker.patch("requests.get")
+    mock_get.side_effect = [
+        MagicMock(json=lambda: page1),
+        MagicMock(json=lambda: page2),
+    ]
+
+    # 缺省 fetch_all=True：自动翻页聚合全部文件
+    response = doc.list_folder_files("fldXXX")
+
+    assert_fs_response(response)
+    assert [f["token"] for f in response["data"]["files"]] == ["doxcnA", "fldcnB"]
+    assert response["data"]["has_more"] is False
+    assert response["data"]["total"] == 2
+    assert mock_get.call_count == 2
+    # page_size 缺省 200，与 folder_token 一起拼进查询串
+    assert mock_get.call_args_list[0].args[0] == (
+        "https://open.feishu.cn/open-apis/drive/v1/files?folder_token=fldXXX&page_size=200"
+    )
+    # 第二次请求带上第一页返回的 next_page_token
+    assert "page_token=tok2" in mock_get.call_args_list[1].args[0]
+    assert mock_get.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
+
+
+def test_list_folder_files_single_page_returns_raw_response(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    # fetch_all=False：返回原始响应，翻页控制权在调用方
+    raw = _mock_file_page([], has_more=True, next_page_token="tok2")
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = raw
+
+    response = doc.list_folder_files("fldXXX", fetch_all=False, page_size=50)
+
+    assert response == raw
+    # 显式 page_size 原样透传（不被缺省 200 覆盖）
+    assert "page_size=50" in mock_get.call_args.args[0]
+    assert "page_size=200" not in mock_get.call_args.args[0]
+
+
+def test_list_folder_files_root_no_pagination(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    # 根目录不拼 folder_token / 分页参数，仅发一次请求
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_file_page(
+        [{"token": "doxcnA", "type": "docx", "name": "根目录文档"}]
+    )
+
+    response = doc.list_folder_files()
+
+    assert_fs_response(response)
+    assert response["data"]["total"] == 1
+    assert mock_get.call_count == 1
+    assert (
+        mock_get.call_args.args[0] == "https://open.feishu.cn/open-apis/drive/v1/files"
+    )
+
+
+def test_list_folder_files_order_and_user_id_type(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    mock_get = mocker.patch("requests.get")
+    mock_get.return_value.json.return_value = _mock_file_page([])
+
+    # 排序与 owner_id 的用户 ID 类型作为查询参数拼入 URL（对根目录同样生效）
+    doc.list_folder_files(
+        order_by="CreatedTime", direction="ASC", user_id_type="user_id"
+    )
+
+    url = mock_get.call_args.args[0]
+    assert "order_by=CreatedTime" in url
+    assert "direction=ASC" in url
+    assert "user_id_type=user_id" in url
 
 
 def test_append_text(mocker, fs_keys):

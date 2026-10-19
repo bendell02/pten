@@ -3,7 +3,8 @@ pten.fs_doc
 ~~~~~~~~~~~
 
 飞书文档（docx）的高层封装：文档的创建与读取、文本 / markdown 追加、
-末尾文本块删除。鉴权由 FsCorpApi 的 tenant_access_token 经 Authorization 请求头完成。
+末尾文本块删除；另含云空间文件夹的文件清单查询。鉴权由 FsCorpApi 的
+tenant_access_token 经 Authorization 请求头完成。
 """
 
 import time
@@ -133,6 +134,70 @@ class FsDoc:
             # 单页模式：返回原始响应，翻页控制权在调用方
             return get_page(page_size, page_token)
         return fetch_all_pages(get_page, page_size, page_token, 500)
+
+    def list_folder_files(
+        self,
+        folder_token=None,
+        fetch_all=True,
+        page_size=None,
+        page_token=None,
+        order_by=None,
+        direction=None,
+        user_id_type=None,
+        **kwargs,
+    ):
+        """获取文件夹中的文件清单（仅当前层级，不递归子文件夹）。
+
+        条目含名称 / 类型 / token / url / 创建与修改时间 / 所有者 ID，shortcut
+        条目另带 shortcut_info 指向原文件。根目录（不传 folder_token 或传空串）
+        一次返回全部，不支持分页、不返回快捷方式。
+
+        :param folder_token: 文件夹 token，缺省或空串为云空间根目录
+        :param fetch_all: True（默认）自动翻页，聚合全部文件后返回响应 dict
+            （data.files 为全量文件，data.has_more=False，data.total 为实际返回数）；
+            False 只查一页，返回原始响应 dict（data 含 files / has_more /
+            next_page_token），翻页控制权在调用方
+        :param page_size: 分页大小，最大 200；fetch_all=True 缺省 200（API 上限，
+            最小化请求次数），False 缺省不传（服务端默认 100）
+        :param page_token: 起始分页标记，缺省从头遍历；fetch_all=True 时从该标记处继续聚合
+        :param order_by: 排序字段，EditedTime（服务端默认）/ CreatedTime
+        :param direction: 排序方向，ASC 升序 / DESC 降序
+        :param user_id_type: owner_id 的用户 ID 类型，open_id（服务端默认）/
+            union_id / user_id
+        :return: 始终返回响应 dict（fetch_all=True 时 data.files 为聚合后的全量文件、
+            data.has_more=False；False 时为单页原始响应）
+        https://open.feishu.cn/document/server-docs/docs/drive-v1/folder/list
+        """
+
+        def get_page(page_size, page_token):
+            args = {}
+            if folder_token:
+                args["folder_token"] = folder_token
+                # 根目录不支持分页，分页参数仅在指定文件夹时拼接
+                if page_size is not None:
+                    args["page_size"] = str(page_size)
+                if page_token:
+                    args["page_token"] = page_token
+            if order_by:
+                args["order_by"] = order_by
+            if direction:
+                args["direction"] = direction
+            if user_id_type:
+                args["user_id_type"] = user_id_type
+            args.update(kwargs)
+            return self.api.http_call(CORP_API_TYPE["FOLDER_FILE_LIST"], args)
+
+        if not fetch_all:
+            # 单页模式：返回原始响应，翻页控制权在调用方
+            return get_page(page_size, page_token)
+        return fetch_all_pages(
+            get_page,
+            page_size,
+            page_token,
+            200,
+            items_key="files",
+            token_key="next_page_token",
+        )
 
     def append_text(self, document_id, text, **kwargs):
         """把一段纯文本作为一个文本块插入到文档末尾。

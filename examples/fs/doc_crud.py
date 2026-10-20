@@ -3,7 +3,9 @@
 运行前提：[fs] 配置 app_id、app_secret，且应用具备 docx:document 权限；
 append_markdown 的 convert 环节另需 docx:document.block:convert，带图片时
 素材上传另需 docs:document.media:upload 等任一上传权限；list_folder_files
-另需 drive:drive / drive:drive:readonly / space:document:retrieve 任一权限。
+另需 drive:drive / drive:drive:readonly / space:document:retrieve 任一权限；
+transfer_owner 另需 docs:permission.member:transfer / drive:drive 等任一权限，
+且调用身份（应用）须为该文档的所有者。
 注意：本例会真实创建一篇文档并追加内容；结束时删除本例追加的部分块，
 文档本身保留（可在飞书云空间手动删除）。
 运行方式：python examples/fs/doc_crud.py
@@ -48,3 +50,10 @@ if __name__ == "__main__":
     # 8. 云空间根目录的文件清单（含上面创建的文档；仅当前层级，不递归）
     folder_files = doc.list_folder_files()
     print(json.dumps(folder_files, indent=4, ensure_ascii=False))
+
+    # 9. 转移云文档所有者（调用身份须为文档所有者；doc_type 缺省 docx、
+    #    member_type 缺省 openid；转移多维表格等资源时显式传 doc_type="bitable"）
+    #    如果要按 user_id（而非默认的 open_id）指定新所有者，设置 member_type="userid"，
+    #    用户 ID 的获取方式见：https://open.feishu.cn/document/platform-overveiw/basic-concepts/user-identity-introduction/open-id
+    # print(doc.transfer_owner(document_id, "ou_你的open_id"))
+    # print(doc.transfer_owner(document_id, "your_user_id", member_type="userid"))

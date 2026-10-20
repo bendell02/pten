@@ -149,6 +149,10 @@ CORP_API_TYPE = {
     ],
     # —— 云空间（drive）操作 ——
     "FOLDER_FILE_LIST": ["drive/v1/files", "GET"],
+    "PERMISSION_TRANSFER_OWNER": [
+        "drive/v1/permissions/FILE_TOKEN/members/transfer_owner",
+        "POST",
+    ],
 }
 
 

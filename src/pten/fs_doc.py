@@ -3,8 +3,8 @@ pten.fs_doc
 ~~~~~~~~~~~
 
 飞书文档（docx）的高层封装：文档的创建与读取、文本 / markdown 追加、
-末尾文本块删除；另含云空间文件夹的文件清单查询。鉴权由 FsCorpApi 的
-tenant_access_token 经 Authorization 请求头完成。
+末尾文本块删除；另含云空间文件夹的文件清单查询与云文档所有者转移。
+鉴权由 FsCorpApi 的 tenant_access_token 经 Authorization 请求头完成。
 """
 
 import time
@@ -198,6 +198,53 @@ class FsDoc:
             items_key="files",
             token_key="next_page_token",
         )
+
+    def transfer_owner(
+        self,
+        token,
+        member_id,
+        member_type="openid",
+        doc_type="docx",
+        remove_old_owner=None,
+        stay_put=None,
+        old_owner_perm=None,
+        **kwargs,
+    ):
+        """转移云文档所有者（把指定云文档的所有者转给另一位用户）。
+
+        调用身份须为该云文档的所有者（tenant_access_token 对应的应用需先经
+        云文档页面「添加文档应用」获得协作者身份，见接口文档错误码 1063002）。
+        转移后原所有者默认保留 full_access 权限；仅显式 remove_old_owner=True
+        时被移除，或经 old_owner_perm 降级保留。
+
+        :param token: 云文档 token，须与 doc_type 匹配（docx 文档即 document_id，
+            多维表格即 app_token，文件夹即 folder_token）
+        :param member_id: 新所有者的用户 ID，与 member_type 对应
+        :param member_type: 新所有者的 ID 类型，openid（默认）/ userid / email
+        :param doc_type: 云文档类型，docx（默认）/ doc / sheet / file / wiki /
+            bitable / mindnote / minutes / slides / folder
+        :param remove_old_owner: 转移后是否移除原所有者的权限，缺省不移除
+        :param stay_put: 个人文件夹下的云文档是否留在原所有者个人文件夹下，
+            缺省移至新所有者的空间下（仅云文档在个人文件夹下时生效）
+        :param old_owner_perm: 为原所有者保留的权限，full_access（默认）/ view /
+            edit，仅 remove_old_owner 为 false 时生效
+        :return: 成功即 code==0（data 为空 dict）
+        https://open.feishu.cn/document/server-docs/docs/permission/permission-member/transfer_owner
+        """
+        shortUrl, method = CORP_API_TYPE["PERMISSION_TRANSFER_OWNER"]
+        url = sub_url(shortUrl, FILE_TOKEN=token)
+        # POST 的 args 进请求体，查询参数必须走 URL；复用 _append_args 拼 ?/&
+        query = {"type": doc_type}
+        if remove_old_owner is not None:
+            query["remove_old_owner"] = str(remove_old_owner).lower()
+        if stay_put is not None:
+            query["stay_put"] = str(stay_put).lower()
+        if old_owner_perm:
+            query["old_owner_perm"] = old_owner_perm
+        url = self.api._append_args(url, query)
+        data = {"member_type": member_type, "member_id": member_id}
+        data.update(kwargs)
+        return self.api.http_call([url, method], data)
 
     def append_text(self, document_id, text, **kwargs):
         """把一段纯文本作为一个文本块插入到文档末尾。

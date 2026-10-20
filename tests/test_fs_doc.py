@@ -267,6 +267,75 @@ def test_list_folder_files_order_and_user_id_type(mocker, fs_keys):
     assert "user_id_type=user_id" in url
 
 
+def test_transfer_owner(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"code": 0, "msg": "success", "data": {}}
+
+    response = doc.transfer_owner("doxcnA", "ou_67e5ecb64ce1c0bd94612c17999abcef")
+
+    assert_fs_response(response)
+    # 缺省 doc_type=docx、member_type=openid：type 拼进查询串，新所有者进请求体
+    assert mock_post.call_args.args[0] == (
+        "https://open.feishu.cn/open-apis/drive/v1/permissions/doxcnA/"
+        "members/transfer_owner?type=docx"
+    )
+    body = json.loads(mock_post.call_args.kwargs["data"])
+    assert body == {
+        "member_type": "openid",
+        "member_id": "ou_67e5ecb64ce1c0bd94612c17999abcef",
+    }
+    assert mock_post.call_args.kwargs["headers"]["Authorization"] == "Bearer t-fake"
+
+
+def test_transfer_owner_full_options(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"code": 0, "msg": "success", "data": {}}
+
+    doc.transfer_owner(
+        "bascnXX",
+        "3rd_peyong",
+        member_type="userid",
+        doc_type="bitable",
+        remove_old_owner=True,
+        stay_put=True,
+        old_owner_perm="view",
+    )
+
+    # 非 docx 类型（多维表格 app_token）+ userid：可选项全部拼进查询串（bool 转小写字符串）。
+    # 注：remove_old_owner=True 时 old_owner_perm 实际不生效（官方语义），此处仅覆盖查询串拼接
+    url = mock_post.call_args.args[0]
+    assert url == (
+        "https://open.feishu.cn/open-apis/drive/v1/permissions/bascnXX/"
+        "members/transfer_owner?type=bitable&remove_old_owner=true"
+        "&stay_put=true&old_owner_perm=view"
+    )
+    body = json.loads(mock_post.call_args.kwargs["data"])
+    assert body == {"member_type": "userid", "member_id": "3rd_peyong"}
+
+
+def test_transfer_owner_explicit_false_options(mocker, fs_keys):
+    doc = FsDoc(keys=fs_keys)
+    doc.keys.save_access_token(doc.api._token_key, "t-fake")
+
+    mock_post = mocker.patch("requests.post")
+    mock_post.return_value.json.return_value = {"code": 0, "msg": "success", "data": {}}
+
+    # 显式 False 是有效取值（不移除原所有者权限），须发 "false" 而非被当作未传丢弃
+    doc.transfer_owner("doxcnA", "ou_x", remove_old_owner=False)
+
+    url = mock_post.call_args.args[0]
+    assert "remove_old_owner=false" in url
+    # 未显式传的可选项不拼进查询串
+    assert "stay_put" not in url
+    assert "old_owner_perm" not in url
+
+
 def test_append_text(mocker, fs_keys):
     mock_post = mocker.patch("requests.post")
     mock_post.side_effect = create_fs_mock_response(
